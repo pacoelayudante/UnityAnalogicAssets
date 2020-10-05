@@ -1,0 +1,16 @@
+﻿<html>
+<link rel="icon" href="data:;base64,iVBORw0KGgo=">
+
+<body>
+    <form action="/subir" id="form" enctype="multipart/form-data" target="mostra" method="POST">
+        <input type="file" id="imagen" name="imagen" accept="image/png, image/jpeg" />
+    </form>
+    <iframe name="mostra"></iframe>
+</body>
+<script>
+    document.getElementById("imagen").addEventListener("change", function () {
+        document.getElementById("form").submit();
+    });
+</script>
+
+</html>
