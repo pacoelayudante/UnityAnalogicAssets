@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-using Guazu.NanoWeb;
 using OpenCvSharp;
 using System.Linq;
 using Rect = UnityEngine.Rect;
@@ -11,7 +10,8 @@ public class CapturadorSprites : EditorWindow
 {
     Texture2D texturaSubida;
     ProcesarRecuadros procRecuadros;
-    Dictionary<Recuadro, ExtraerSprites> extractoresSprites = null;
+    // Dictionary<Recuadro, ExtraerSprites> extractoresSprites = null;
+    List<ExtraerSprites> extractoresSprites = null;
     Editor procRecuadrosEditor, extSpritesEditor;
     bool dontDestroy;
     Vector2 scrollControles, scrollSprites;
@@ -20,34 +20,39 @@ public class CapturadorSprites : EditorWindow
     Texture2D textPrimerPasada, textRecuadro;
     Recuadro recuadroExaminado;
 
+    CapturadorSpritesSave saveFile;
+    string pathOrigen;
+
     List<Object> destruime = new List<Object>();
 
-    [InitializeOnLoadMethod]
-    static void Init()
-    {
-        NanoWebEditorWindow.UsarRuta("recibir imagen", "subir", (ctx, parser) =>
-        {
-            var textura = new Texture2D(8, 8);
-            textura.LoadImage(parser.FileContents);
-            NanoWebEditorWindow.ResponderString(ctx.Response, "imagen subida", true);
-
-            var win = AbrirCon(textura, new GUIContent($"Imagen Recibida {System.DateTime.Now}", textura));
-        });
-    }
-
-    [MenuItem("Assets/Procesar Textura", true)]
+    [MenuItem("Assets/Extraer Sprites", true)]
     static bool ProcesarTexturaValidator() => Selection.activeObject is Texture2D;
-    [MenuItem("Assets/Procesar Textura", false, 0)]
+    [MenuItem("Assets/Extraer Sprites", false, 0)]
     static void ProcesarTextura() => AbrirCon((Texture2D)Selection.activeObject);
 
-    static CapturadorSprites AbrirCon(Texture2D textura, GUIContent titulo = null)
+    public static CapturadorSprites AbrirCon(Texture2D textura, GUIContent titulo = null)
     {
-        var win = CreateInstance<CapturadorSprites>();
+        var win = CreateWindow<CapturadorSprites>();
         if (titulo != null) win.titleContent = titulo;
         win.destruime.Add(win.texturaSubida = textura);
         win.Show();
         return win;
     }
+    public static CapturadorSprites AbrirCon(CapturadorSpritesSave saveFile, string pathOrigen) {
+        var win = CreateWindow<CapturadorSprites>();
+        win.titleContent = new GUIContent(saveFile.name);
+        win.destruime.Add(win.saveFile = saveFile);
+        win.destruime.Add(win.texturaSubida = saveFile.texturaOrigen);
+        win.destruime.Add(win.procRecuadros = saveFile.procesarRecuadros);
+        win.extractoresSprites = saveFile.extractores;
+        foreach(var extr in win.extractoresSprites) win.destruime.Add(extr);
+        win.Show();
+        return win;
+    }
+
+    // void OnDisable() {
+
+    // }
 
     Texture2D ActualizarPreview(Texture2D textura, OpenCvSharp.Mat mat)
     {
@@ -120,7 +125,7 @@ public class CapturadorSprites : EditorWindow
                     {
                         recuadroExaminado = rec == recuadroExaminado ? null : rec;
                         // if (recuadroExaminado != null) textRecuadro = ActualizarPreview(textRecuadro, rec.matRecuadroNormalizado);
-                        if (recuadroExaminado != null) textRecuadro = ActualizarPreview(textRecuadro, extractoresSprites[rec].matRecuadro);
+                        if (recuadroExaminado != null) textRecuadro = ActualizarPreview(textRecuadro, ExtractorDe(rec).matRecuadro);
                     }
 
                 }
@@ -160,14 +165,56 @@ public class CapturadorSprites : EditorWindow
             
             EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUI.BeginDisabledGroup(string.IsNullOrEmpty(pathOrigen));
+            if (GUILayout.Button("Save")) {
+                Save( pathOrigen );
+            }
+            EditorGUI.EndDisabledGroup();
+            if (GUILayout.Button("Save As..")) {
+                var path = EditorUtility.SaveFilePanelInProject("Guardar Extractor De Sprites","auto_sprites","asset","Puedes volver a cambiar parametros y volver a procesar los sprites");
+                if (!string.IsNullOrEmpty(path)) {
+                Save(pathOrigen = path);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
         }
+    }
+
+    ExtraerSprites ExtractorDe(Recuadro rec) {
+        var index = procRecuadros.Recuadros.IndexOf(rec);
+        return extractoresSprites[index];
+    }
+    bool ExtractorExisteDe(Recuadro rec) {
+        var index = procRecuadros.Recuadros.IndexOf(rec);
+        return index != -1 && extractoresSprites[index]!=null;
+    }
+
+    void Save(string path) {
+        Debug.Log($"saving at {path}");
+        if (!saveFile) {
+            saveFile = ScriptableObject.CreateInstance<CapturadorSpritesSave>();
+            saveFile.texturaOrigen = texturaSubida;
+            saveFile.procesarRecuadros = procRecuadros;
+            saveFile.extractores = extractoresSprites;
+        }
+        saveFile.Save(path);
+        // AssetDatabase.CreateAsset(procRecuadros,path);
+        // // if (!AssetDatabase.Contains(texturaSubida)) 
+        // {
+        //     textPrimerPasada.hideFlags = texturaSubida.hideFlags;
+        //     Debug.Log($"saving texture too");
+        //     AssetDatabase.AddObjectToAsset(textPrimerPasada,path);
+        // }
+        // AssetDatabase.SaveAssets();
     }
 
     void DibujarControlSprites()
     {
-        if (extractoresSprites.ContainsKey(recuadroExaminado))
+        if (ExtractorExisteDe(recuadroExaminado))
         {
-            Editor.CreateCachedEditor(extractoresSprites[recuadroExaminado], typeof(CustomExtSpriteEditor), ref extSpritesEditor);
+            Editor.CreateCachedEditor(ExtractorDe(recuadroExaminado), typeof(CustomExtSpriteEditor), ref extSpritesEditor);
         }
         if (extSpritesEditor != null)
         {
@@ -178,15 +225,15 @@ public class CapturadorSprites : EditorWindow
             if (EditorGUI.EndChangeCheck())
             {
                 ExtraerSpritesDeRecuadro(recuadroExaminado);
-                textRecuadro = ActualizarPreview(textRecuadro, extractoresSprites[recuadroExaminado].matRecuadro);
+                textRecuadro = ActualizarPreview(textRecuadro, ExtractorDe(recuadroExaminado).matRecuadro);
             }
         }
     }
     void SpritesEncontrados(bool dobleColumna)
     {
-        if (extractoresSprites.ContainsKey(recuadroExaminado))
+        if (ExtractorExisteDe(recuadroExaminado))
         {
-            var extractor = extractoresSprites[recuadroExaminado];
+            var extractor = ExtractorDe(recuadroExaminado);
             
             if (dobleColumna) {
                 EditorGUILayout.EndVertical();
@@ -255,25 +302,26 @@ public class CapturadorSprites : EditorWindow
     {
         if (extractoresSprites != null)
         {
-            foreach (var combo in extractoresSprites)
+            foreach (var extract in extractoresSprites)
             {
-                if (combo.Value && !AssetDatabase.Contains(combo.Value)) DestroyImmediate(combo.Value);
-                destruime.Remove(combo.Value);
+                if (extract && !AssetDatabase.Contains(extract)) DestroyImmediate(extract);
+                destruime.Remove(extract);
             }
         }
-        extractoresSprites = new Dictionary<Recuadro, ExtraerSprites>();
-        foreach (var rec in procRecuadros.Recuadros)
+        extractoresSprites = new List<ExtraerSprites>();
+        // foreach (var rec in procRecuadros.Recuadros)
+        for (int i=0; i<procRecuadros.Recuadros.Count; i++)
         {
             var extractor = ScriptableObject.CreateInstance<ExtraerSprites>();
-            extractoresSprites.Add(rec, extractor);
-            ExtraerSpritesDeRecuadro(rec);
+            extractoresSprites.Add(extractor);
+            ExtraerSpritesDeRecuadro(procRecuadros.Recuadros[i]);
             destruime.Add(extractor);
         }
     }
 
     void ExtraerSpritesDeRecuadro(Recuadro rec)
     {
-        var extractor = extractoresSprites[rec];
+        var extractor = ExtractorDe(rec);
         extractor.Extraer(procRecuadros.MatOriginal, rec);
     }
 

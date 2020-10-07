@@ -14,6 +14,8 @@ public class ExtraerSprites : ScriptableObject
 {
     public ProcesarRecuadros procesarRecuadros;
     public bool conservarOriginal = true;
+    [Range(0, 3)]
+    public int ajustarRotacion = 0;
     [Min(1)]
     public int maxTamLadoImagenProcesada = 512;
     public FiltroAdaptativo filtroAdaptativo = new FiltroAdaptativo() { blockSize = 11, C = 4, thresholdType = ThresholdTypes.BinaryInv };
@@ -24,10 +26,17 @@ public class ExtraerSprites : ScriptableObject
     public int tamMedianBlur = 7;
     public FiltroContornos filtroContornos = new FiltroContornos() { mode = RetrievalModes.External, method = ContourApproximationModes.ApproxTC89KCOS };
     public float tamMinimoSprite = 0.045f;
+
+    public bool equalizarHistograma = false;
+    public bool equalizarHistogramaDeSat = false;
+    [Range(0, 256f)]
+    public float ajusteTresh = 0f;
+
     public List<Texture2D> texturasResultantes = new List<Texture2D>();
+    public List<Sprite> spriteResultantes = new List<Sprite>();
 
     List<Contorno> contornos;
-    public Mat matRecuadro {get; private set;}
+    public Mat matRecuadro { get; private set; }
     // List<Contorno> contornosDeSprites;
     // public List<Contorno> ContornosDeSprites => contornosDeSprites;
 
@@ -71,9 +80,9 @@ public class ExtraerSprites : ScriptableObject
         var contornosSinProcesar = filtroContornos.Procesar(matRecuadro);
         texturasResultantes.Clear();
         contornos = new List<Contorno>();
-        
+
         var tamRecuadro = recuadro.matRecuadroNormalizado.Size();
-        var tamMinimo = tamMinimoSprite*Mathf.Min( tamRecuadro.Width,tamRecuadro.Height);
+        var tamMinimo = tamMinimoSprite * Mathf.Min(tamRecuadro.Width, tamRecuadro.Height);
         for (int i = 0; i < contornosSinProcesar.Length; i++)
         {
             var contniu = new Contorno(i, contornosSinProcesar);
@@ -82,7 +91,7 @@ public class ExtraerSprites : ScriptableObject
             if (bbox.Width >= tamMinimo && bbox.Height >= tamMinimo
             && bbox.Left > 0 && bbox.Right < tamRecuadro.Width - 1 && bbox.Top > 0 && bbox.Bottom < tamRecuadro.Height - 1)
             {
-                texturasResultantes.Add(ExtraerSprite(recuadro.matRecuadroNormalizado, contniu));
+                texturasResultantes.Add(ExtraerSprite(recuadro.matRecuadroNormalizado, contniu, ajustarRotacion));
                 contornos.Add(contniu);
             }
         }
@@ -90,7 +99,7 @@ public class ExtraerSprites : ScriptableObject
         this.matRecuadro = matRecuadro;
     }
 
-    public Texture2D ExtraerSprite(Mat matOriginal, Contorno contorno)
+    public Texture2D ExtraerSprite(Mat matOriginal, Contorno contorno, int ajustarRotacion)
     {
         var matTexturaAlfa = new Mat(contorno.BoundingRect.Height, contorno.BoundingRect.Width, MatType.CV_8UC1, new Scalar());
         Cv2.DrawContours(matTexturaAlfa, new[] { contorno.contorno }, 0, ProcesarRecuadros.ColEscalarBlanco,
@@ -98,11 +107,42 @@ public class ExtraerSprites : ScriptableObject
 
         var matTexturaColor = new Mat(matOriginal, contorno.BoundingRect);
 
+        if (equalizarHistograma || ajusteTresh > 0f || equalizarHistogramaDeSat)
+        {
+            var convertMat = new Mat();
+            Cv2.CvtColor(matTexturaColor, convertMat, ColorConversionCodes.BGR2HSV);
+            var splits = convertMat.Split();
+
+            if (equalizarHistograma || equalizarHistogramaDeSat)
+            {
+                var clahe = Cv2.CreateCLAHE();
+                if (equalizarHistograma)
+                {
+                    Cv2.FastNlMeansDenoising(splits[2], splits[2]);
+                    clahe.Apply(splits[2], splits[2]);
+                }
+                if (equalizarHistogramaDeSat)
+                {
+                    Cv2.FastNlMeansDenoising(splits[1], splits[1]);
+                    clahe.Apply(splits[1], splits[1]);
+                }
+            }
+            // Cv2.Threshold(splits[2],splits[1],ajusteTresh,255,ThresholdTypes.TozeroInv);
+            if (ajusteTresh > 0) Cv2.Threshold(splits[1], splits[1], ajusteTresh, 255, ThresholdTypes.Tozero);
+
+            // clahe.Apply(splits[1],splits[1]);
+            // clahe.Apply(splits[2],splits[2]);
+            // Cv2. EqualizeHist(splits[2],splits[2]);
+            Cv2.Merge(splits, matTexturaColor = convertMat);
+            Cv2.CvtColor(matTexturaColor, matTexturaColor, ColorConversionCodes.HSV2BGR);
+        }
+
         var textura = new Texture2D(matTexturaAlfa.Width, matTexturaAlfa.Height);
         textura.hideFlags = HideFlags.DontSaveInBuild | HideFlags.DontSaveInEditor;
 
         Cv2.Merge(matTexturaColor.Split().Concat(new[] { matTexturaAlfa }).ToArray(), matTexturaAlfa);
 
+        if (ajustarRotacion > 0) Cv2.Rotate(matTexturaAlfa, matTexturaAlfa, (RotateFlags)(ajustarRotacion - 1));
         textura = OCVUnity.MatToTexture(matTexturaAlfa, textura);
 
         return textura;
@@ -144,11 +184,11 @@ public class ExtraerSprites : ScriptableObject
                             }
                         }
 
-                            var textura = new Texture2D(matdraw.Width, matdraw.Height);
-                            textura.hideFlags = HideFlags.DontSaveInBuild | HideFlags.DontSaveInEditor;
-                            OCVUnity.MatToTexture(matdraw, textura);
-                            coso.rawImgPrueba.texture = textura;
-                            coso.rawImgPrueba.SetNativeSize();
+                        var textura = new Texture2D(matdraw.Width, matdraw.Height);
+                        textura.hideFlags = HideFlags.DontSaveInBuild | HideFlags.DontSaveInEditor;
+                        OCVUnity.MatToTexture(matdraw, textura);
+                        coso.rawImgPrueba.texture = textura;
+                        coso.rawImgPrueba.SetNativeSize();
                     }
                 }
             }
