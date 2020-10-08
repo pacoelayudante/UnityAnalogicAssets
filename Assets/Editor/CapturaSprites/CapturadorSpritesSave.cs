@@ -14,8 +14,9 @@ public class CapturadorSpritesSave : ScriptableObject
     // [SerializeField] Texture2D[] texturasExtraidas;
     // [SerializeField] Sprite[] spritesExtraidos;
 
-    void OnDestroy() {
-        foreach(var extractor in extractores) DestroyImmediate(extractor);
+    void OnDestroy()
+    {
+        foreach (var extractor in extractores) DestroyImmediate(extractor);
         DestroyImmediate(procesarRecuadros);
     }
 
@@ -24,33 +25,54 @@ public class CapturadorSpritesSave : ScriptableObject
     {
         var paraGuardar = Instantiate(this);
 
-        procesarRecuadros = Instantiate(procesarRecuadros);
-        extractores = extractores.Select(ex=>Instantiate(ex)).ToList();
-        
-        AssetDatabase.CreateAsset(this, path);
-        AssetDatabase.AddObjectToAsset(procesarRecuadros, path);
+        paraGuardar.procesarRecuadros = Instantiate(procesarRecuadros);
+        paraGuardar.procesarRecuadros.name = "Recuadros";
+        paraGuardar.extractores = extractores.Take(paraGuardar.procesarRecuadros.Recuadros.Count).Select(ex => Instantiate(ex)).ToList();
+
+        AssetDatabase.CreateAsset(paraGuardar, path);
+        AssetDatabase.AddObjectToAsset(paraGuardar.procesarRecuadros, path);
+        Debug.Log($"{AssetDatabase.Contains(texturaOrigen)} - {AssetDatabase.GetAssetPath(texturaOrigen)}");
         if (!AssetDatabase.Contains(texturaOrigen))
         {
-            texturaOrigen.hideFlags = HideFlags.NotEditable;
-            AssetDatabase.AddObjectToAsset(texturaOrigen, path);
+            paraGuardar.texturaOrigen = Instantiate(texturaOrigen);
+            paraGuardar.texturaOrigen.name = "principal";
+            EditorUtility.CompressTexture(paraGuardar.texturaOrigen, TextureFormat.DXT1, TextureCompressionQuality.Normal);
+            paraGuardar.texturaOrigen.hideFlags = HideFlags.NotEditable;
+            AssetDatabase.AddObjectToAsset(paraGuardar.texturaOrigen, path);
         }
-        foreach(var extractor in extractores) {
+        foreach (var extractor in paraGuardar.extractores)
+        {
+            extractor.name = "Extractor Sprite";
             AssetDatabase.AddObjectToAsset(extractor, path);
         }
-        foreach (var texturas in extractores.SelectMany(ext=>ext.texturasResultantes))
+        int c = 0;
+        foreach (var resultante in paraGuardar.extractores.SelectMany(ext => ext.texturasResultantes))
         {
-            if (!AssetDatabase.Contains(texturas))
+            if (!AssetDatabase.Contains(resultante))
             {
-                texturas.hideFlags = HideFlags.NotEditable;
-                AssetDatabase.AddObjectToAsset(texturas, path);
-            }
-            foreach (var sprite in extractores.SelectMany(ext=>ext.spriteResultantes))
-            {
-                if (!AssetDatabase.Contains(sprite))
+                // EditorUtility.CompressTexture(resultante, TextureFormat., TextureCompressionQuality.Normal);
+                // var copia = Instantiate(resultante);
+                var copia = resultante;
+                copia.hideFlags = HideFlags.NotEditable;
+                copia.name = $"resultante #{c++}";
+                try
                 {
-                    sprite.hideFlags = HideFlags.NotEditable;
-                    AssetDatabase.AddObjectToAsset(sprite, path);
+                    AssetDatabase.AddObjectToAsset(copia, path);
                 }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning(e);
+                }
+            }
+        }
+        c = 0;
+        foreach (var sprite in paraGuardar.extractores.SelectMany(ext => ext.spriteResultantes))
+        {
+            if (!AssetDatabase.Contains(sprite))
+            {
+                sprite.hideFlags = HideFlags.NotEditable;
+                sprite.name = $"sprite #{c++}";
+                AssetDatabase.AddObjectToAsset(sprite, path);
             }
         }
         AssetDatabase.SaveAssets();
@@ -58,14 +80,17 @@ public class CapturadorSpritesSave : ScriptableObject
     }
 
     [CustomEditor(typeof(CapturadorSpritesSave))]
-    public class MiEditor : Editor {
-        public override void OnInspectorGUI() {
+    public class MiEditor : Editor
+    {
+        public override void OnInspectorGUI()
+        {
             DrawDefaultInspector();
             var obj = target as CapturadorSpritesSave;
-            if (GUILayout.Button("Editar")) {
+            if (GUILayout.Button("Editar"))
+            {
                 var instancia = Instantiate(obj);
                 instancia.procesarRecuadros = Instantiate(instancia.procesarRecuadros);
-                instancia.extractores = instancia.extractores.Select(ex=>Instantiate(ex)).ToList();
+                instancia.extractores = instancia.extractores.Select(ex => Instantiate(ex)).ToList();
                 CapturadorSprites.AbrirCon(instancia, AssetDatabase.GetAssetPath(obj));
                 Resources.UnloadUnusedAssets();
             }

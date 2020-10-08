@@ -79,6 +79,7 @@ public class ExtraerSprites : ScriptableObject
 
         var contornosSinProcesar = filtroContornos.Procesar(matRecuadro);
         texturasResultantes.Clear();
+        spriteResultantes.Clear();
         contornos = new List<Contorno>();
 
         var tamRecuadro = recuadro.matRecuadroNormalizado.Size();
@@ -91,8 +92,12 @@ public class ExtraerSprites : ScriptableObject
             if (bbox.Width >= tamMinimo && bbox.Height >= tamMinimo
             && bbox.Left > 0 && bbox.Right < tamRecuadro.Width - 1 && bbox.Top > 0 && bbox.Bottom < tamRecuadro.Height - 1)
             {
-                texturasResultantes.Add(ExtraerSprite(recuadro.matRecuadroNormalizado, contniu, ajustarRotacion));
+                var textExtraida = ExtraerSprite(recuadro.matRecuadroNormalizado, contniu, ajustarRotacion);
+                texturasResultantes.Add(textExtraida);
                 contornos.Add(contniu);
+                var spriteGen = Sprite.Create(textExtraida, new UnityEngine.Rect(0,0,textExtraida.width,textExtraida.height)
+                    , Vector2.one/2f, 100f, 1, SpriteMeshType.Tight, Vector4.zero, false);
+                spriteResultantes.Add(spriteGen);
             }
         }
 
@@ -138,6 +143,7 @@ public class ExtraerSprites : ScriptableObject
         }
 
         var textura = new Texture2D(matTexturaAlfa.Width, matTexturaAlfa.Height);
+        textura.alphaIsTransparency = true;
         textura.hideFlags = HideFlags.DontSaveInBuild | HideFlags.DontSaveInEditor;
 
         Cv2.Merge(matTexturaColor.Split().Concat(new[] { matTexturaAlfa }).ToArray(), matTexturaAlfa);

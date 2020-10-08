@@ -44,8 +44,10 @@ public class CapturadorSprites : EditorWindow
         win.destruime.Add(win.saveFile = saveFile);
         win.destruime.Add(win.texturaSubida = saveFile.texturaOrigen);
         win.destruime.Add(win.procRecuadros = saveFile.procesarRecuadros);
+        win.pathOrigen = pathOrigen;
         win.extractoresSprites = saveFile.extractores;
         foreach(var extr in win.extractoresSprites) win.destruime.Add(extr);
+        win.Procesar();
         win.Show();
         return win;
     }
@@ -70,10 +72,12 @@ public class CapturadorSprites : EditorWindow
 
     void OnEnable()
     {
-        recuadroExaminado = null;
-        if (procRecuadros && procRecuadros.Recuadros != null)
-        {
-            Procesar();
+        if (texturaSubida) {
+            recuadroExaminado = null;
+            if (procRecuadros && procRecuadros.Recuadros != null)
+            {
+                Procesar();
+            }
         }
     }
     private void OnDestroy()
@@ -111,14 +115,13 @@ public class CapturadorSprites : EditorWindow
             if (procRecuadros && procRecuadros.Recuadros != null)
             {
                 var escala = new Vector2(rect.width / textPrimerPasada.width, rect.height / textPrimerPasada.height);
-                int conter = 0;
                 foreach (var rec in procRecuadros.Recuadros)
                 {
                     var cvbbox = OpenCvSharp.Rect.BoundingBoxForPoints(rec.quadReducido.Select(p => new Point(p.X * escala.x, p.Y * escala.y)).ToArray());
                     var bbox = new UnityEngine.Rect(cvbbox.X + rect.x, cvbbox.Y, cvbbox.Width, cvbbox.Height);
                     // EditorGUI.DrawRect(bbox, Color.green);                    
                     if (recuadroExaminado == rec) GUI.color = Color.green;
-                    EditorGUI.DropShadowLabel(bbox, $"#{++conter}");
+                    EditorGUI.DropShadowLabel(bbox, $"#{procRecuadros.Recuadros.IndexOf(rec)}");
                     GUI.color = Color.white;
 
                     if (curEvent.type == EventType.MouseUp && bbox.Contains(curEvent.mousePosition))
@@ -300,22 +303,22 @@ public class CapturadorSprites : EditorWindow
 
     void ActualizarExtractoresSprites()
     {
-        if (extractoresSprites != null)
-        {
-            foreach (var extract in extractoresSprites)
-            {
-                if (extract && !AssetDatabase.Contains(extract)) DestroyImmediate(extract);
-                destruime.Remove(extract);
-            }
-        }
-        extractoresSprites = new List<ExtraerSprites>();
-        // foreach (var rec in procRecuadros.Recuadros)
+        if (extractoresSprites == null) extractoresSprites = new List<ExtraerSprites>();
+        // {
+        //     foreach (var extract in extractoresSprites)
+        //     {
+        //         if (extract && !AssetDatabase.Contains(extract)) DestroyImmediate(extract);
+        //         destruime.Remove(extract);
+        //     }
+        // }
+        
         for (int i=0; i<procRecuadros.Recuadros.Count; i++)
         {
-            var extractor = ScriptableObject.CreateInstance<ExtraerSprites>();
-            extractoresSprites.Add(extractor);
+            if (i==extractoresSprites.Count) {
+                extractoresSprites.Add(ScriptableObject.CreateInstance<ExtraerSprites>());
+                destruime.Add(extractoresSprites[i]);
+            }
             ExtraerSpritesDeRecuadro(procRecuadros.Recuadros[i]);
-            destruime.Add(extractor);
         }
     }
 
