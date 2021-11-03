@@ -38,7 +38,8 @@ public class CapturadorSprites : EditorWindow
         win.Show();
         return win;
     }
-    public static CapturadorSprites AbrirCon(CapturadorSpritesSave saveFile, string pathOrigen) {
+    public static CapturadorSprites AbrirCon(CapturadorSpritesSave saveFile, string pathOrigen)
+    {
         var win = CreateWindow<CapturadorSprites>();
         win.titleContent = new GUIContent(saveFile.name);
         win.destruime.Add(win.saveFile = saveFile);
@@ -46,7 +47,7 @@ public class CapturadorSprites : EditorWindow
         win.destruime.Add(win.procRecuadros = saveFile.procesarRecuadros);
         win.pathOrigen = pathOrigen;
         win.extractoresSprites = saveFile.extractores;
-        foreach(var extr in win.extractoresSprites) win.destruime.Add(extr);
+        foreach (var extr in win.extractoresSprites) win.destruime.Add(extr);
         win.Procesar();
         win.Show();
         return win;
@@ -72,7 +73,8 @@ public class CapturadorSprites : EditorWindow
 
     void OnEnable()
     {
-        if (texturaSubida) {
+        if (texturaSubida)
+        {
             recuadroExaminado = null;
             if (procRecuadros && procRecuadros.Recuadros != null)
             {
@@ -82,10 +84,13 @@ public class CapturadorSprites : EditorWindow
     }
     private void OnDestroy()
     {
-        recuadroExaminado = null;
-        foreach (var obj in destruime)
+        if (texturaSubida)
         {
-            if (obj && !AssetDatabase.Contains(obj)) DestroyImmediate(obj);
+            recuadroExaminado = null;
+            foreach (var obj in destruime)
+            {
+                if (obj && !AssetDatabase.Contains(obj)) DestroyImmediate(obj);
+            }
         }
     }
 
@@ -94,8 +99,8 @@ public class CapturadorSprites : EditorWindow
         if (texturaSubida)
         {
             var curEvent = Event.current;
-            var dobleColumna = recuadroExaminado!=null && position.width > 600;
-            var anchoColumna = dobleColumna ? position.width/2f:0;
+            var dobleColumna = recuadroExaminado != null && position.width > 600;
+            var anchoColumna = dobleColumna ? position.width / 2f : 0;
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.BeginVertical(GUILayout.MaxWidth(anchoColumna));
 
@@ -107,8 +112,8 @@ public class CapturadorSprites : EditorWindow
             // var areaPreview = GUILayoutUtility.GetRect(0, position.width, 0, alturaPreview);
 
             // var rect = new UnityEngine.Rect(areaPreview.x, areaPreview.y, areaPreview.height * aspectTextura, areaPreview.height);//GUILayoutUtility.GetAspectRect(aspectTextura);
-            var rect = GUILayoutUtility.GetAspectRect(aspectTextura,GUILayout.MaxWidth(aspectTextura* alturaPreview));
-            
+            var rect = GUILayoutUtility.GetAspectRect(aspectTextura, GUILayout.MaxWidth(aspectTextura * alturaPreview));
+
             // rect.width /= 2f;
             EditorGUI.DrawTextureTransparent(rect, texturaSubida);
             EditorGUI.DropShadowLabel(rect, $"({texturaSubida.width}x{texturaSubida.height})");
@@ -136,17 +141,18 @@ public class CapturadorSprites : EditorWindow
             // rect.x += rect.width;
             if (textRecuadro && recuadroExaminado != null)
             {
-            aspectTextura = textRecuadro.width / (float)textRecuadro.height;
-            rect = GUILayoutUtility.GetAspectRect(aspectTextura,GUILayout.MaxWidth(aspectTextura* alturaPreview));
+                aspectTextura = textRecuadro.width / (float)textRecuadro.height;
+                rect = GUILayoutUtility.GetAspectRect(aspectTextura, GUILayout.MaxWidth(aspectTextura * alturaPreview));
                 // rect.width = rect.height * textRecuadro.width / textRecuadro.height;
                 EditorGUI.DrawTextureTransparent(rect, textRecuadro);
                 EditorGUI.DropShadowLabel(rect, $"({textRecuadro.width}x{textRecuadro.height})");
             }
-            else if (textPrimerPasada) {
-            rect = GUILayoutUtility.GetAspectRect(aspectTextura,GUILayout.MaxWidth(aspectTextura* alturaPreview));
+            else if (textPrimerPasada)
+            {
+                rect = GUILayoutUtility.GetAspectRect(aspectTextura, GUILayout.MaxWidth(aspectTextura * alturaPreview));
                 EditorGUI.DrawTextureTransparent(rect, textPrimerPasada);
             }
-            
+
             EditorGUILayout.EndHorizontal();
 
             if (!procRecuadros)
@@ -165,38 +171,62 @@ public class CapturadorSprites : EditorWindow
             {
                 DibujarControlRecuadros();
             }
-            
+
             EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
             EditorGUI.BeginDisabledGroup(string.IsNullOrEmpty(pathOrigen));
-            if (GUILayout.Button("Save")) {
-                Save( pathOrigen );
+            if (GUILayout.Button("Save"))
+            {
+                Save(pathOrigen);
             }
             EditorGUI.EndDisabledGroup();
-            if (GUILayout.Button("Save As..")) {
-                var path = EditorUtility.SaveFilePanelInProject("Guardar Extractor De Sprites","auto_sprites","asset","Puedes volver a cambiar parametros y volver a procesar los sprites");
-                if (!string.IsNullOrEmpty(path)) {
-                Save(pathOrigen = path);
+            if (GUILayout.Button("Save As.."))
+            {
+                var path = EditorUtility.SaveFilePanelInProject("Guardar Extractor De Sprites", "auto_sprites", "asset", "Puedes volver a cambiar parametros y volver a procesar los sprites");
+                if (!string.IsNullOrEmpty(path))
+                {
+                    Save(pathOrigen = path);
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Export PNGs...")) {                
+                var path = EditorUtility.SaveFilePanelInProject("Wont create folder", "exported_sprites_", "", "Exportar sprites como png");
+                if (!string.IsNullOrEmpty(path))
+                {
+                    ExportPNGs(path);
+                }
+            }
+            if (GUILayout.Button("Export Sprite Pack...")) {                
+                var path = EditorUtility.SaveFilePanelInProject("Save single asset with sprites", "sprites_pack", "asset", "Exportar sprites como un solo asset");
+                if (!string.IsNullOrEmpty(path))
+                {
+                    ExportarSpritePack(path);
                 }
             }
             EditorGUILayout.EndHorizontal();
         }
     }
 
-    ExtraerSprites ExtractorDe(Recuadro rec) {
+    ExtraerSprites ExtractorDe(Recuadro rec)
+    {
         var index = procRecuadros.Recuadros.IndexOf(rec);
         return extractoresSprites[index];
     }
-    bool ExtractorExisteDe(Recuadro rec) {
+    bool ExtractorExisteDe(Recuadro rec)
+    {
         var index = procRecuadros.Recuadros.IndexOf(rec);
-        return index != -1 && extractoresSprites[index]!=null;
+        return index != -1 && extractoresSprites[index] != null;
     }
 
-    void Save(string path) {
+    void Save(string path)
+    {
         Debug.Log($"saving at {path}");
-        if (!saveFile) {
+        if (!saveFile)
+        {
             saveFile = ScriptableObject.CreateInstance<CapturadorSpritesSave>();
             saveFile.texturaOrigen = texturaSubida;
             saveFile.procesarRecuadros = procRecuadros;
@@ -211,6 +241,18 @@ public class CapturadorSprites : EditorWindow
         //     AssetDatabase.AddObjectToAsset(textPrimerPasada,path);
         // }
         // AssetDatabase.SaveAssets();
+    }
+
+    void ExportPNGs(string path) {
+        int c = 0;
+        foreach(var text in extractoresSprites.SelectMany(ext=>ext.texturasResultantes)) {
+            System.IO.File.WriteAllBytes($"{path}_{c++}.png", text.EncodeToPNG());
+        }
+        AssetDatabase.Refresh();
+    }
+    void ExportarSpritePack(string path) {
+        MiniSpritePack.CreateAsset(extractoresSprites.SelectMany(ext=>ext.spriteResultantes), path);
+        AssetDatabase.Refresh();
     }
 
     void DibujarControlSprites()
@@ -237,24 +279,27 @@ public class CapturadorSprites : EditorWindow
         if (ExtractorExisteDe(recuadroExaminado))
         {
             var extractor = ExtractorDe(recuadroExaminado);
-            
-            if (dobleColumna) {
+
+            if (dobleColumna)
+            {
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.BeginVertical();
             }
             scrollSprites = EditorGUILayout.BeginScrollView(scrollSprites);
             if (!dobleColumna) EditorGUILayout.BeginHorizontal();
-            
+
             int columna = 0;
-            foreach(var texturaSprite in extractor.texturasResultantes) {
+            foreach (var texturaSprite in extractor.texturasResultantes)
+            {
                 if (!texturaSprite) continue;
-                var aspect = texturaSprite.width/(float)texturaSprite.height;
-                var maxWidth = GUILayout.MaxWidth( Mathf.Min(texturaSprite.width, dobleColumna ? position.width/2f : aspect*alturaPreview) );
+                var aspect = texturaSprite.width / (float)texturaSprite.height;
+                var maxWidth = GUILayout.MaxWidth(Mathf.Min(texturaSprite.width, dobleColumna ? position.width / 2f : aspect * alturaPreview));
                 var rect = GUILayoutUtility.GetAspectRect(aspect, maxWidth);
-                EditorGUI.DrawTextureTransparent(rect,texturaSprite);
+                EditorGUI.DrawTextureTransparent(rect, texturaSprite);
                 EditorGUI.DropShadowLabel(rect, $"({texturaSprite.width}x{texturaSprite.height})");
 
-                if (!dobleColumna && ++columna >= 4) {
+                if (!dobleColumna && ++columna >= 4)
+                {
                     columna = 0;
                     EditorGUILayout.EndHorizontal();
                     EditorGUILayout.BeginHorizontal();
@@ -311,10 +356,11 @@ public class CapturadorSprites : EditorWindow
         //         destruime.Remove(extract);
         //     }
         // }
-        
-        for (int i=0; i<procRecuadros.Recuadros.Count; i++)
+
+        for (int i = 0; i < procRecuadros.Recuadros.Count; i++)
         {
-            if (i==extractoresSprites.Count) {
+            if (i == extractoresSprites.Count)
+            {
                 extractoresSprites.Add(ScriptableObject.CreateInstance<ExtraerSprites>());
                 destruime.Add(extractoresSprites[i]);
             }
@@ -332,7 +378,7 @@ public class CapturadorSprites : EditorWindow
     class CustomProcRecuadrosEditor : Editor
     {
         static readonly string[] excludeProps = new string[] { "conservarMatOriginal", "conservarEscalado", "m_Script",
-            "recuadros", "conservarOriginal", "texturasResultantes", "procesarRecuadros" };
+            "recuadros", "conservarOriginal", "texturasResultantes", "procesarRecuadros", "spriteResultantes" };
 
         public override void OnInspectorGUI()
         {

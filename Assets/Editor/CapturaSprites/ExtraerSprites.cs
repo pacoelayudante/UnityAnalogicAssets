@@ -19,6 +19,8 @@ public class ExtraerSprites : ScriptableObject
     [Min(1)]
     public int maxTamLadoImagenProcesada = 512;
     public FiltroAdaptativo filtroAdaptativo = new FiltroAdaptativo() { blockSize = 11, C = 4, thresholdType = ThresholdTypes.BinaryInv };
+    [Min(0)]
+    public int margenCorrector = 0;
     [SoloImpares]
     public int tamKernelDilate = 3;
     public int repeatDilate = 1;
@@ -29,8 +31,15 @@ public class ExtraerSprites : ScriptableObject
 
     public bool equalizarHistograma = false;
     public bool equalizarHistogramaDeSat = false;
+
+    public enum OtsuAlgo {
+        Nop, OtsuSaturacionYBrillo, OtsuFiltroDameColores, OtsuFiltroDameColoresYBlanco
+    }
+    public OtsuAlgo otsu = OtsuAlgo.Nop;
+
     [Range(0, 256f)]
     public float ajusteTresh = 0f;
+
 
     public List<Texture2D> texturasResultantes = new List<Texture2D>();
     public List<Sprite> spriteResultantes = new List<Sprite>();
@@ -69,6 +78,7 @@ public class ExtraerSprites : ScriptableObject
         if (conservarOriginal) matRecuadro = matRecuadro.Clone();
         Cv2.CvtColor(matRecuadro, matRecuadro, ColorConversionCodes.BGR2GRAY);
         matRecuadro = filtroAdaptativo.Procesar(matRecuadro);
+        if (margenCorrector > 0) Cv2.Rectangle(matRecuadro, new Point(0, 0), new Point(matRecuadro.Width, matRecuadro.Height), Scalar.Black, margenCorrector);
 
         if (repeatDilate > 0)
         {
@@ -95,8 +105,8 @@ public class ExtraerSprites : ScriptableObject
                 var textExtraida = ExtraerSprite(recuadro.matRecuadroNormalizado, contniu, ajustarRotacion);
                 texturasResultantes.Add(textExtraida);
                 contornos.Add(contniu);
-                var spriteGen = Sprite.Create(textExtraida, new UnityEngine.Rect(0,0,textExtraida.width,textExtraida.height)
-                    , Vector2.one/2f, 100f, 1, SpriteMeshType.Tight, Vector4.zero, false);
+                var spriteGen = Sprite.Create(textExtraida, new UnityEngine.Rect(0, 0, textExtraida.width, textExtraida.height)
+                    , Vector2.one / 2f, 100f, 1, SpriteMeshType.Tight, Vector4.zero, false);
                 spriteResultantes.Add(spriteGen);
             }
         }
@@ -112,7 +122,7 @@ public class ExtraerSprites : ScriptableObject
 
         var matTexturaColor = new Mat(matOriginal, contorno.BoundingRect);
 
-        if (equalizarHistograma || ajusteTresh > 0f || equalizarHistogramaDeSat)
+        if (equalizarHistograma || ajusteTresh > 0f || equalizarHistogramaDeSat || otsu!=OtsuAlgo.Nop)
         {
             var convertMat = new Mat();
             Cv2.CvtColor(matTexturaColor, convertMat, ColorConversionCodes.BGR2HSV);
@@ -133,7 +143,34 @@ public class ExtraerSprites : ScriptableObject
                 }
             }
             // Cv2.Threshold(splits[2],splits[1],ajusteTresh,255,ThresholdTypes.TozeroInv);
+            if (otsu == OtsuAlgo.OtsuSaturacionYBrillo)
+            {
             if (ajusteTresh > 0) Cv2.Threshold(splits[1], splits[1], ajusteTresh, 255, ThresholdTypes.Tozero);
+                Cv2.Threshold(splits[2], splits[2], 127, 255, ThresholdTypes.Otsu);
+                Cv2.Threshold(splits[1], splits[1], 127, 255, ThresholdTypes.Otsu);
+            }
+            else if (otsu == OtsuAlgo.OtsuFiltroDameColores) {
+                // if (ajusteTresh > 0) Cv2.Threshold(splits[2], splits[1], ajusteTresh, 255, ThresholdTypes.Binary);
+                // var resultadoColor = new Mat();
+                Cv2.Min(splits[1],splits[2],splits[1]);//esto hace que las zonas oscuras no tengan saturacion mayor a su brillo
+                // Cv2.Threshold(splits[], splits[2], 127, 255, ThresholdTypes.Otsu);
+                Cv2.Threshold(splits[1], splits[1], 127, 255, ThresholdTypes.Otsu);
+                splits[2] = splits[1];
+                // Cv2.Min(splits[1],resultadoColor,splits[2]);
+            }
+            else if (otsu == OtsuAlgo.OtsuFiltroDameColoresYBlanco) {
+                // if (ajusteTresh > 0) Cv2.Threshold(splits[2], splits[1], ajusteTresh, 255, ThresholdTypes.Binary);
+                // var resultadoColor = new Mat();
+                Cv2.Min(splits[1],splits[2],splits[1]);//esto hace que las zonas oscuras no tengan saturacion mayor a su brillo
+                // Cv2.Threshold(splits[], splits[2], 127, 255, ThresholdTypes.Otsu);
+                Cv2.Threshold(splits[1], splits[1], 127, 255, ThresholdTypes.Otsu);
+                // splits[2] = new Mat(splits[2].Rows,splits[2].Cols,splits[2].Type(),255);
+                splits[2].SetTo(255);
+                // Cv2.Min(splits[1],resultadoColor,splits[2]);
+            }
+            else {
+            if (ajusteTresh > 0) Cv2.Threshold(splits[1], splits[1], ajusteTresh, 255, ThresholdTypes.Tozero);
+            }
 
             // clahe.Apply(splits[1],splits[1]);
             // clahe.Apply(splits[2],splits[2]);
