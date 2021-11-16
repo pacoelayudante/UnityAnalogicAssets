@@ -49,6 +49,13 @@ public class VerTexturaSola : EditorWindow
             this.Close();
             return;
         }
+
+        if (Event.current.type == EventType.MouseUp && position.Contains(Event.current.mousePosition+position.position) && Event.current.button == 2)
+        {
+            this.Close();
+            return;
+        }
+
         _imagenScale = EditorGUILayout.Slider("zoom", _imagenScale, .1f, 4f);
         scroll = EditorGUILayout.BeginScrollView(scroll);
         Rect rectDePreview;

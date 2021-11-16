@@ -50,6 +50,8 @@ public class BuscarFormaWin : EditorWindow
         EditorGUI.DrawPreviewTexture(imgRect, _tex2d);
         EditorGUILayout.EndScrollView();
 
+        DoWeirdBlackExtract();
+
         DoThreshold();
         DoCanny();
         DoAdaptiveThresh();
@@ -75,7 +77,7 @@ public class BuscarFormaWin : EditorWindow
                 for (int y = 0; y < dst.Height; y++)
                     for (int x = 0; x < dst.Width; x++)
                     {
-                        var dataAt = dst.At<ushort>(y,x);
+                        var dataAt = dst.At<ushort>(y, x);
                         data.Add(Vector3.one * (dataAt / (float)ushort.MaxValue));
                     }
 
@@ -159,21 +161,27 @@ public class BuscarFormaWin : EditorWindow
                 for (int y = 0; y < dst.Height; y++)
                     for (int x = 0; x < dst.Width; x++)
                     {
-                        var dataAt = splits[0].At<char>(y,x);
+                        var dataAt = splits[0].At<char>(y, x);
                         //data.Add(Vector3.one * (dataAt / (float)ushort.MaxValue));
                         data.Add(Vector3.one * dataAt);
                     }
 
                 var sat = _tipoColor == TipoColor.HSV ? splits[1] : splits[2];
                 var brillo = _tipoColor == TipoColor.HSV ? splits[2] : splits[1];
+
                 Cv2.Threshold(sat, sat, _thresh, 255f, _threshType);
                 if (_setValueMax)
                     Cv2.Threshold(sat, brillo, _thresh, _maxVal, ThresholdTypes.Binary);
                 //brillo.SetTo(_maxVal);
 
-                Mat laplacian = new Mat();
                 if (_rangeMagica.x != _rangeMagica.y)
+                {
+                    Mat laplacian = new Mat();
                     Cv2.InRange(splits[0], _rangeMagica.x, _rangeMagica.y, laplacian);
+                    Cv2.BitwiseAnd(brillo, laplacian, laplacian);
+                    VerTexturaSola.Mostrar(OpenCvSharp.Unity.MatToTexture(laplacian), true, true);
+                    laplacian.Dispose();
+                }
 
                 Cv2.Merge(splits, dst);
                 Cv2.CvtColor(dst, dst, _tipoColor == TipoColor.HSV ? ColorConversionCodes.HSV2BGR : ColorConversionCodes.HLS2BGR);
@@ -193,10 +201,9 @@ public class BuscarFormaWin : EditorWindow
 
                 //else
                 //    Cv2.ConvertScaleAbs(laplacian, splits[0]);
-                win = VerTexturaSola.Mostrar(OpenCvSharp.Unity.MatToTexture(laplacian), true, true);
+                //win = VerTexturaSola.Mostrar(OpenCvSharp.Unity.MatToTexture(laplacian), true, true);
                 //win.data = data;
 
-                laplacian.Dispose();
                 foreach (var split in splits)
                     split.Dispose();
             }
@@ -222,6 +229,51 @@ public class BuscarFormaWin : EditorWindow
         sigmaA = EditorGUILayout.Slider("sigmaA", sigmaA, 0f, 15f);
         sigmaB = EditorGUILayout.Slider("sigmaB", sigmaB, 0f, 100f);
         maxLevelPyr = EditorGUILayout.IntSlider("maxLevelPyr", maxLevelPyr, 0, 4);
+    }
+
+    private void DoWeirdBlackExtract()
+    {
+        if (GUILayout.Button("Weird Black Extract"))
+        {
+            using (Mat dst = new Mat())
+            {
+                Cv2.CvtColor(_mat, dst, _tipoColor == TipoColor.HSV ? ColorConversionCodes.BGR2HSV : ColorConversionCodes.BGR2HLS);
+                var splits = dst.Split();
+
+                var data = new List<Vector3>();
+                for (int y = 0; y < dst.Height; y++)
+                    for (int x = 0; x < dst.Width; x++)
+                    {
+                        var dataAt = splits[0].At<char>(y, x);
+                        //data.Add(Vector3.one * (dataAt / (float)ushort.MaxValue));
+                        data.Add(Vector3.one * dataAt);
+                    }
+
+                var sat = _tipoColor == TipoColor.HSV ? splits[1] : splits[2];
+                var brillo = _tipoColor == TipoColor.HSV ? splits[2] : splits[1];
+
+                using (Mat mixSatBri = new Mat(), blackMask = new Mat())
+                {
+                    //  primero 40 despues 15? mas o menos
+                    Cv2.CvtColor(_mat, blackMask, ColorConversionCodes.BGR2GRAY);
+                    Cv2.Threshold(blackMask, blackMask, _cannyTresh[0], _maxVal, _threshType);
+                    Cv2.Absdiff(sat, brillo, mixSatBri);
+                    Cv2.BitwiseAnd(blackMask, mixSatBri, mixSatBri);
+                    VerTexturaSola.Mostrar(OpenCvSharp.Unity.MatToTexture(mixSatBri), true, true);
+                    Cv2.Threshold(mixSatBri, mixSatBri, _cannyTresh[1], _maxVal, ThresholdTypes.BinaryInv);
+
+                    using (Mat morphStruct = _morphSize > 0 ? Cv2.GetStructuringElement(MorphShapes.Rect, new Size(_morphSize, _morphSize)) : null)
+                    {
+                        if (_morphSize > 0)
+                        {
+                            Cv2.MorphologyEx(mixSatBri, mixSatBri, _morphType, morphStruct);
+                        }
+                    }
+
+                    VerTexturaSola.Mostrar(OpenCvSharp.Unity.MatToTexture(mixSatBri), true, true);
+                }
+            }
+        }
     }
 
     private void OnDestroy() => ClearMem();
