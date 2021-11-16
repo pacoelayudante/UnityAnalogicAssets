@@ -54,13 +54,13 @@ public class BlobNave : BlobGenerico
         _salidasBabor.Sort( (vecA,vecB)=>{
             var anguloA = Vector2.SignedAngle(vecA-CentroBBox, _direccion);
             var anguloB = Vector2.SignedAngle(vecB-CentroBBox, _direccion);
-            return anguloA.CompareTo(anguloB);
+            return anguloB.CompareTo(anguloA);
         } );
         
         _salidasEstribor.Sort( (vecA,vecB)=>{
             var anguloA = Vector2.SignedAngle(vecA-CentroBBox, _direccion);
             var anguloB = Vector2.SignedAngle(vecB-CentroBBox, _direccion);
-            return anguloB.CompareTo(anguloA);
+            return anguloA.CompareTo(anguloB);
         } );
     }
 }

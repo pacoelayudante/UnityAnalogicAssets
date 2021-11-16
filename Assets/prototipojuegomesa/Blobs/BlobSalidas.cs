@@ -14,7 +14,7 @@ public class BlobSalidas : BlobGenerico
 
     public BlobSalidas(GrafoDeContornos.Contorno contorno, Mat _puntosNegros):base(contorno) {
         foreach(var cont in contorno._contenidos) {
-            var punto = _puntosNegros.At<byte>(cont.CentroBBoxCV.X,cont.CentroBBoxCV.Y);
+            var punto = _puntosNegros.At<byte>(cont.CentroBBoxCV.Y,cont.CentroBBoxCV.X);
 
             if (punto == 0) {
                 _contornosSalidas.Add(cont);

@@ -17,9 +17,8 @@ public class BlobAccionDisparo : BlobGenerico
     public BlobAccionDisparo(GrafoDeContornos.Contorno contorno, Mat _puntosRosa, Mat _puntosNegros):base(contorno) {
         var distLejana = 0f;
         foreach(var cont in contorno._contenidos) {
-            var puntoNegro = _puntosNegros.At<byte>(cont.CentroBBoxCV.X,cont.CentroBBoxCV.Y);
-            var puntoRosa = _puntosRosa.At<byte>(cont.CentroBBoxCV.X,cont.CentroBBoxCV.Y);
-                Debug.Log($"negro : {puntoNegro} - rosa : {puntoRosa}");
+            var puntoNegro = _puntosNegros.At<byte>(cont.CentroBBoxCV.Y,cont.CentroBBoxCV.X);
+            var puntoRosa = _puntosRosa.At<byte>(cont.CentroBBoxCV.Y,cont.CentroBBoxCV.X);
 
             if (puntoNegro == 0) {
                 _contornosMarcas.Add(cont);

@@ -86,7 +86,6 @@ public class PrimerFiltro
         }
 
         Cv2.CvtColor(_mat, _matGray, ColorConversionCodes.BGR2GRAY);
-
         Cv2.CvtColor(_mat, _matHSV, ColorConversionCodes.BGR2HSV);
 
         Disposear(_matHue, _matSat, _matVal);
@@ -206,22 +205,6 @@ public class PrimerFiltro
             }
         }
 
-        foreach (var nave in _naves)
-        {
-            int idx = 0;
-            foreach (var pt in nave._salidasBabor)
-            {
-                var point = new Point(pt.x, pt.y);
-                Cv2.PutText(_matGray, (++idx).ToString(), point, HersheyFonts.HersheyPlain, 1f, new Scalar(255, 190, 255));
-            }
-            idx = 0;
-            foreach (var pt in nave._salidasEstribor)
-            {
-                var point = new Point(pt.x, pt.y);
-                Cv2.PutText(_matGray, (++idx).ToString(), point, HersheyFonts.HersheyPlain, 1f, new Scalar(255, 190, 255));
-            }
-        }
-
         foreach (var cont in _grafoVerde._primerNivel)
         {
             if (_pastillas.Any((past) => past._verde == cont))
@@ -229,6 +212,11 @@ public class PrimerFiltro
 
             if (cont.BBox.width < _config.tamDeColorPastilla[1] && cont.BBox.height < _config.tamDeColorPastilla[1])
                 continue;
+
+            // foreach (var cont2 in cont._contenidos)
+            // {
+            //     Cv2.FillConvexPoly(_matGray, cont2._contornoOpenCV, new Scalar(0, 255, 255));
+            // }
 
             var nuevoDisparo = new BlobAccionDisparo(cont, _matRosaMask, _matValueMask);
             if (nuevoDisparo.Cantidad > 0)
@@ -242,6 +230,34 @@ public class PrimerFiltro
                     Cv2.Circle(_matGray, punto, 4, new Scalar(0, 255, 255), 2, LineTypes.AntiAlias);
                     Cv2.PutText(_matGray, (++idx).ToString(), punto, HersheyFonts.HersheyPlain, 1f, new Scalar(0, 0, 0));
                 }
+            }
+        }
+
+        foreach (var nave in _naves)
+        {
+            int idx = 0;
+            foreach (var pt in nave._salidasBabor)
+            {
+                if (idx < _disparos[0].Cantidad) {
+                    var tiro = _disparos[0]._disparosEstimados[idx];
+                    var dir = (pt-tiro)*1000;
+                    Cv2.ArrowedLine(_matGray, new Point(tiro.x,tiro.y), new Point(dir.x,dir.y), new Scalar(255,0,0), 1);
+                }
+
+                var point = new Point(pt.x, pt.y);
+                Cv2.PutText(_matGray, (++idx).ToString(), point, HersheyFonts.HersheyPlain, 1f, new Scalar(255, 190, 255));
+            }
+            idx = 0;
+            foreach (var pt in nave._salidasEstribor)
+            {
+                if (idx < _disparos[0].Cantidad) {
+                    var tiro = _disparos[0]._disparosEstimados[idx];
+                    var dir = (pt-tiro)*1000;
+                    Cv2.ArrowedLine(_matGray, new Point(tiro.x,tiro.y), new Point(dir.x,dir.y), new Scalar(255,0,0), 1);
+                }
+                
+                var point = new Point(pt.x, pt.y);
+                Cv2.PutText(_matGray, (++idx).ToString(), point, HersheyFonts.HersheyPlain, 1f, new Scalar(255, 190, 255));
             }
         }
 
