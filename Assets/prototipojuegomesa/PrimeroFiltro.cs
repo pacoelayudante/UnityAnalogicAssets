@@ -43,6 +43,7 @@ public class PrimerFiltro
     public List<BlobNave> _naves = new List<BlobNave>();
     public List<BlobSalidas> _salidas = new List<BlobSalidas>();
     public List<BlobAccionDisparo> _disparos = new List<BlobAccionDisparo>();
+    public Dictionary<int,BlobAccionDisparo> _disparosSelector = new Dictionary<int, BlobAccionDisparo>();
 
     Mat _matGray, _matHSV;
     Mat _matSatMask, _matValueMask;
@@ -126,27 +127,30 @@ public class PrimerFiltro
 
         //Cv2.BitwiseOr(_matThreshTwo, _matRosaVerdeMask, _matThreshTwo);
 
-
         _matThreshOne.SetTo(new Scalar(0));
         foreach (var past in _pastillas)
         {
-            Cv2.DrawContours(_matThreshTwo, new[] { past._verde._contornoOpenCV, past._rosa._contornoOpenCV }, -1, new Scalar(255), -1);
+            Cv2.DrawContours(_matThreshTwo, new[] { past._templado._contornoOpenCV, past._calido._contornoOpenCV }, -1, new Scalar(255), -1);
 
             Cv2.Circle(_matThreshOne, past.CentroCV, _config.radioBlobPastillas, new Scalar(255), -1);
 
-            var pV = new Point2f(past._verde.BBox.center.x, past._verde.BBox.center.y);
-            var pR = new Point2f(past._rosa.BBox.center.x, past._rosa.BBox.center.y);
+            var pV = new Point2f(past._templado.BBox.center.x, past._templado.BBox.center.y);
+            var pR = new Point2f(past._calido.BBox.center.x, past._calido.BBox.center.y);
             Cv2.Line(_matHSV, pV, pR, new Scalar(0, 255, 0));
 
-            pV = new Point2f(past._verde.BBox.min.x, past._verde.BBox.min.y);
-            pR = new Point2f(past._verde.BBox.max.x, past._verde.BBox.max.y);
+            pV = new Point2f(past._templado.BBox.min.x, past._templado.BBox.min.y);
+            pR = new Point2f(past._templado.BBox.max.x, past._templado.BBox.max.y);
             Cv2.Rectangle(_matHSV, pV, pR, new Scalar(0, 255, 255));
-            pV = new Point2f(past._rosa.BBox.min.x, past._rosa.BBox.min.y);
-            pR = new Point2f(past._rosa.BBox.max.x, past._rosa.BBox.max.y);
+            pV = new Point2f(past._calido.BBox.min.x, past._calido.BBox.min.y);
+            pR = new Point2f(past._calido.BBox.max.x, past._calido.BBox.max.y);
             Cv2.Rectangle(_matHSV, pV, pR, new Scalar(255, 255, 0));
         }
 
         _naves.Clear();
+        _disparos.Clear();
+        _disparosSelector.Clear();
+        _salidas.Clear();
+
         Cv2.BitwiseAnd(_matThreshOne, _matThreshTwo, _matThreshOne);
         Cv2.FindContours(_matThreshOne, out Point[][] contornos3, out HierarchyIndex[] jerarquia3, RetrievalModes.CComp, _config.contourApproximationModes);
         _grafoNaves = GrafoDeContornos.Crear(contornos3, _matThreshOne.Size(), jerarquia3);
@@ -172,7 +176,7 @@ public class PrimerFiltro
 
         foreach (var cont in _grafoRosa._primerNivel)
         {
-            if (_pastillas.Any((past) => past._rosa == cont))
+            if (_pastillas.Any((past) => past._calido == cont))
                 continue;
 
             if (cont.BBox.width < _config.tamDeColorPastilla[1] && cont.BBox.height < _config.tamDeColorPastilla[1])
@@ -207,7 +211,7 @@ public class PrimerFiltro
 
         foreach (var cont in _grafoVerde._primerNivel)
         {
-            if (_pastillas.Any((past) => past._verde == cont))
+            if (_pastillas.Any((past) => past._templado == cont))
                 continue;
 
             if (cont.BBox.width < _config.tamDeColorPastilla[1] && cont.BBox.height < _config.tamDeColorPastilla[1])
@@ -219,7 +223,14 @@ public class PrimerFiltro
             // }
 
             var nuevoDisparo = new BlobAccionDisparo(cont, _matRosaMask, _matValueMask);
-            if (nuevoDisparo.Cantidad > 0)
+            if (nuevoDisparo.EsSelector) {
+                var pt = new Point(nuevoDisparo.Centroide.x, nuevoDisparo.Centroide.y);
+                var ptMark = new Point(nuevoDisparo._marcaLejana.x, nuevoDisparo._marcaLejana.y);
+                _disparosSelector.Add(nuevoDisparo.Indice,nuevoDisparo);
+                    Cv2.PutText(_matGray, nuevoDisparo.Indice.ToString(), pt, HersheyFonts.HersheyPlain, 1f, new Scalar(0, 0, 0));
+                    Cv2.Circle(_matGray, ptMark, 4, new Scalar(0, 255, 255), 2, LineTypes.AntiAlias);
+            }
+            else
             {
                 _disparos.Add(nuevoDisparo);
 
@@ -230,13 +241,37 @@ public class PrimerFiltro
                     Cv2.Circle(_matGray, punto, 4, new Scalar(0, 255, 255), 2, LineTypes.AntiAlias);
                     Cv2.PutText(_matGray, (++idx).ToString(), punto, HersheyFonts.HersheyPlain, 1f, new Scalar(0, 0, 0));
                 }
+                foreach (var pt in nuevoDisparo._contornosMarcas.Select(cont=>cont.CentroBBoxCV))
+                    Cv2.Circle(_matGray, pt, 2, new Scalar(0, 0, 255), 2, LineTypes.AntiAlias);
             }
         }
 
-        foreach (var nave in _naves)
+        foreach (var disp in _disparos) {
+            if (_disparosSelector.ContainsKey(disp.Indice))
+                disp._selector = _disparosSelector[disp.Indice];
+        }
+
+        foreach(var disparo in _disparos.OrderByDescending((a)=>a._selector==null?0:1)) {
+            var nave = _naves.OrderBy( (nav)=>Vector2.Distance( nav.CentroBBox , disparo.PuntoBusqueda ) ).FirstOrDefault();
+            if (nave != null)
+                nave._disparo = disparo;
+        }
+
+        foreach (var nave in _naves.Where(nav=>nav._disparo!=null))
         {
             int idx = 0;
-            foreach (var pt in nave._salidasBabor)
+            foreach (var pt in nave.SalidaActiva)
+            {
+                if (idx < nave._disparo.Cantidad) {
+                    var tiro = nave._disparo._disparosEstimados[idx];
+                    var dir = (pt-tiro)*1000;
+                    Cv2.ArrowedLine(_matGray, new Point(tiro.x,tiro.y), new Point(dir.x,dir.y), new Scalar(255,0,0), 1);
+                }
+
+                var point = new Point(pt.x, pt.y);
+                Cv2.PutText(_matGray, (++idx).ToString(), point, HersheyFonts.HersheyPlain, 1f, new Scalar(255, 190, 255));
+            }
+            /*foreach (var pt in nave._salidasBabor)
             {
                 if (idx < _disparos[0].Cantidad) {
                     var tiro = _disparos[0]._disparosEstimados[idx];
@@ -258,7 +293,7 @@ public class PrimerFiltro
                 
                 var point = new Point(pt.x, pt.y);
                 Cv2.PutText(_matGray, (++idx).ToString(), point, HersheyFonts.HersheyPlain, 1f, new Scalar(255, 190, 255));
-            }
+            }*/
         }
 
         if (_config.showDebugPreviews)
@@ -304,8 +339,8 @@ public class PrimerFiltro
 
         for (int i = 0, count = parejasPosibles.Count; i < count; i++)
         {
-            var verde = parejasPosibles[i]._verde;
-            var rosa = parejasPosibles[i]._rosa;
+            var verde = parejasPosibles[i]._templado;
+            var rosa = parejasPosibles[i]._calido;
             if (!puntosRosaEncontrados.Contains(rosa) && !puntosVerdesEncontrados.Contains(verde))
             {
                 _pastillas.Add(parejasPosibles[i]);

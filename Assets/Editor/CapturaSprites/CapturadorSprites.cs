@@ -66,7 +66,7 @@ public class CapturadorSprites : EditorWindow
         }
         else if (textura.width != mat.Width || textura.height != mat.Height)
         {
-            textura.Resize(mat.Width, mat.Height);
+            textura.Reinitialize(mat.Width, mat.Height);
         }
         return OpenCvSharp.Unity.MatToTexture(mat, textura);
     }

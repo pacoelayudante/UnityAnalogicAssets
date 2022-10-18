@@ -13,9 +13,6 @@ public class BlobNave : BlobGenerico
 
     public OpenCvSharp.RotatedRect Ellipse => _contorno.EllipseCV;
 
-    public Vector2 CentroBBox => _contorno.CentroBBox;
-    public OpenCvSharp.Point CentroBBoxCV => _contorno.CentroBBoxCV;
-
     public Vector2 _direccion;
     public float _angulo;
 
@@ -26,13 +23,18 @@ public class BlobNave : BlobGenerico
 
     public List<BlobSalidas> _blobsSalidas = new List<BlobSalidas>();
 
+    public BlobAccionDisparo _disparo;
+
+    public bool _disparosHaciaBabor;
+    public List<Vector2> SalidaActiva => _disparosHaciaBabor ? _salidasBabor : _salidasEstribor;
+
     public BlobNave(GrafoDeContornos.Contorno contorno, List<PastillaBicolor> todasLasPastillas):base(contorno)
     {
         _direccion = Vector2.zero;
         foreach (var pastilla in todasLasPastillas)
         {
-            if (_contorno.PointInside(pastilla.CentroRosa)
-            || _contorno.PointInside(pastilla.CentroVerde)
+            if (_contorno.PointInside(pastilla.CentroCalido)
+            || _contorno.PointInside(pastilla.CentroTemplado)
             || _contorno.PointInside(pastilla.Centro)) {
                 _pastillas.Add(pastilla);
                 _direccion += pastilla._direccion;
@@ -54,13 +56,20 @@ public class BlobNave : BlobGenerico
         _salidasBabor.Sort( (vecA,vecB)=>{
             var anguloA = Vector2.SignedAngle(vecA-CentroBBox, _direccion);
             var anguloB = Vector2.SignedAngle(vecB-CentroBBox, _direccion);
-            return anguloB.CompareTo(anguloA);
+            //return anguloB.CompareTo(anguloA);
+            return anguloA.CompareTo(anguloB);
         } );
         
         _salidasEstribor.Sort( (vecA,vecB)=>{
             var anguloA = Vector2.SignedAngle(vecA-CentroBBox, _direccion);
             var anguloB = Vector2.SignedAngle(vecB-CentroBBox, _direccion);
-            return anguloA.CompareTo(anguloB);
+            return anguloB.CompareTo(anguloA);
         } );
+    }
+
+    public void Disparo(BlobAccionDisparo disparo) {
+        _disparo = disparo;
+
+        var dirDisparo = Vector2.SignedAngle(_direccion, disparo.CentroBBox - CentroBBox) > 0;
     }
 }

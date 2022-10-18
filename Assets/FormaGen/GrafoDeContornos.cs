@@ -43,6 +43,9 @@ public class GrafoDeContornos
         public List<Vector2> _contornoUnityNormalized;
 
         public List<Contorno> _contenidos = new List<Contorno>();
+        public int Count => _contenidos.Count;
+
+        public int PointCount => _contornoOpenCV.Length;
 
         public Vector2 Centroide
         {
