@@ -44,6 +44,15 @@ namespace MiniAnim
 
     public class MiniAnimManager : MonoBehaviour
     {
+#if UNITY_EDITOR
+        private static string CachePath => $"{Application.dataPath}/minianimframesfakecache";
+#else
+        private static string CachePath => $"{Application.temporaryCachePath}";
+#endif
+
+        private string FRAME_PREFIX = "frame_";
+        private string FRAME_SUFFIX = "_id_";
+
         [SerializeField]
         GameObject _frameListView;
 
@@ -103,6 +112,25 @@ namespace MiniAnim
         float currentFrame = 0f;
 
         List<MiniAnimFrame> _frames = new List<MiniAnimFrame>();
+
+        public void LoadFromTemp()
+        {
+            var files = System.IO.Directory.GetFiles(CachePath);
+            System.Array.Sort(files);
+            foreach (var filePath in files)
+            {
+                if (System.IO.Path.GetExtension(filePath).Equals(".png"))
+                {
+                    Debug.Log($"loading: {filePath}");
+                    Texture2D imagenRecuperada = NativeCamera.LoadImageAtPath(filePath, -1, false, false);
+                    if (imagenRecuperada)
+                    {
+                        AgregarFrame(imagenRecuperada, 0);
+                        ConfirmarNuevoFrameAceptar(System.IO.Path.GetFileNameWithoutExtension(filePath));
+                    }
+                }
+            }
+        }
 
         private void Update()
         {
@@ -362,20 +390,21 @@ namespace MiniAnim
             Destroy(paraDestruir.gameObject);
         }
 
-        public void ConfirmarNuevoFrameAceptar()
+        public void ConfirmarNuevoFrameAceptar(string imgname = null)
         {
             var createdTexture = _lastAddedFrame.TextureFrame;
             var pngBytes = ImageConversion.EncodeToPNG(createdTexture);
-            var imgname = $"frame_{_frames.IndexOf(_lastAddedFrame)}_id_{System.DateTime.Now.Ticks}";
+            bool guardarEnDisco = string.IsNullOrEmpty(imgname);
+            if (guardarEnDisco)
+                imgname = $"{FRAME_PREFIX}{_frames.IndexOf(_lastAddedFrame)}{FRAME_SUFFIX}{System.DateTime.Now.Ticks}";
             _lastAddedFrame.name = imgname;
 
-#if UNITY_EDITOR
-            // For testing purposes, also write to a file in the project folder
-            System.IO.File.WriteAllBytes($"{Application.dataPath}/{imgname}.png", pngBytes);
-#endif
-            var cachepath = $"{Application.temporaryCachePath}/{imgname}.png";
-            Debug.Log($"writing to {cachepath}");
-            System.IO.File.WriteAllBytes(cachepath, pngBytes);
+            if (guardarEnDisco)
+            {
+                var cachepath = $"{CachePath}/{imgname}.png";
+                Debug.Log($"writing to {cachepath}");
+                System.IO.File.WriteAllBytes(cachepath, pngBytes);
+            }
 
             if (_maxPreviewImageSize > 0 && (createdTexture.width > _maxPreviewImageSize || createdTexture.height > _maxPreviewImageSize))
             {
