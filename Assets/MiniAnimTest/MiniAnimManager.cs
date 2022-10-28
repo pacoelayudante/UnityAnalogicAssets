@@ -119,7 +119,8 @@ namespace MiniAnim
             System.Array.Sort(files);
             foreach (var filePath in files)
             {
-                if (System.IO.Path.GetExtension(filePath).Equals(".png"))
+                var ext = System.IO.Path.GetExtension(filePath);
+                if (ext.Equals(".png") || ext.Equals(".jpg"))
                 {
                     Debug.Log($"loading: {filePath}");
                     Texture2D imagenRecuperada = NativeCamera.LoadImageAtPath(filePath, -1, false, false);
@@ -130,6 +131,24 @@ namespace MiniAnim
                     }
                 }
             }
+        }
+
+        public void ExportFromTemp()
+        {
+            var files = System.IO.Directory.GetFiles(CachePath);
+            System.Array.Sort(files);
+            JavaBitmapToVideoEncoderWrapper.ClearFrames();
+            foreach (var filePath in files)
+            {
+                var ext = System.IO.Path.GetExtension(filePath);
+                if (ext.Equals(".png") || ext.Equals(".jpg"))
+                {
+                    JavaBitmapToVideoEncoderWrapper.AddFrame(filePath);
+                }
+            }
+
+            Debug.Log("sent to encode");
+            JavaBitmapToVideoEncoderWrapper.Encode(15);
         }
 
         private void Update()
@@ -337,6 +356,8 @@ namespace MiniAnim
             using var warpedImg = new Mat();
             Cv2.WarpPerspective(inputMat, warpedImg, homography, new Size(maxWidth, maxHeight));
 
+            Cv2.Resize(warpedImg, warpedImg, new Size(480,360));
+
             return OpenCvSharp.Unity.MatToTexture(warpedImg, replaceTexture);
         }
 
@@ -393,7 +414,7 @@ namespace MiniAnim
         public void ConfirmarNuevoFrameAceptar(string imgname = null)
         {
             var createdTexture = _lastAddedFrame.TextureFrame;
-            var pngBytes = ImageConversion.EncodeToPNG(createdTexture);
+            var encodedImageBytes = ImageConversion.EncodeToJPG(createdTexture);//ImageConversion.EncodeToPNG(createdTexture);
             bool guardarEnDisco = string.IsNullOrEmpty(imgname);
             if (guardarEnDisco)
                 imgname = $"{FRAME_PREFIX}{_frames.IndexOf(_lastAddedFrame)}{FRAME_SUFFIX}{System.DateTime.Now.Ticks}";
@@ -401,9 +422,9 @@ namespace MiniAnim
 
             if (guardarEnDisco)
             {
-                var cachepath = $"{CachePath}/{imgname}.png";
+                var cachepath = $"{CachePath}/{imgname}.jpg";
                 Debug.Log($"writing to {cachepath}");
-                System.IO.File.WriteAllBytes(cachepath, pngBytes);
+                System.IO.File.WriteAllBytes(cachepath, encodedImageBytes);
             }
 
             if (_maxPreviewImageSize > 0 && (createdTexture.width > _maxPreviewImageSize || createdTexture.height > _maxPreviewImageSize))
