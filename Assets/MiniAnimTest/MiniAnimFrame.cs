@@ -27,12 +27,21 @@ namespace MiniAnim
             get => _framePreview.Image;
             set => _framePreview.SetImage(value);
         }
+        
+        private Vector2Int _originalFrameSize;
+        public Vector2Int FrameSize => _originalFrameSize;
 
         private void Awake()
         {
             _removeBut.onClick.AddListener(Remove);
             _addNextBut.onClick.AddListener(AddNext);
             _addPrevBut.onClick.AddListener(AddPrev);
+        }
+
+        public void RecordOriginalFrameSize()
+        {
+            if (TextureFrame)
+                _originalFrameSize = new Vector2Int(TextureFrame.width, TextureFrame.height);
         }
 
         private void AddNext()

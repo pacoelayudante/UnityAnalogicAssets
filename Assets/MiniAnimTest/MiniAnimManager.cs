@@ -85,6 +85,21 @@ namespace MiniAnim
         [SerializeField]
         private int _maxPreviewImageSize = 256;
 
+        [SerializeField]
+        private UnityEngine.Events.UnityEvent<string> _onExportStart = new();
+        [SerializeField]
+        private UnityEngine.Events.UnityEvent<string> _onExportFinish = new();
+        [SerializeField]
+        private UnityEngine.Events.UnityEvent<string> _onError = new();
+
+        [SerializeField]
+        private InputField _sizeInput;
+        [SerializeField]
+        private Dropdown _sizeInputBasic;
+
+        [SerializeField]
+        private InputField _repeatsInput;
+
         private Mat _inputMat;
         private MiniAnimFrame _lastAddedFrame;
 
@@ -100,18 +115,91 @@ namespace MiniAnim
             }
         }
 
+        private int Repeats
+        {
+            get
+            {
+                if (int.TryParse(RepeatsString, out int result))
+                    return result;
+                return 15;
+            }
+            // set => RepeatsString = value.ToString();
+        }
+
+        private string RepeatsString
+        {
+            get => _repeatsInput ? _repeatsInput.text : string.Empty;
+            // set
+            // {
+            //     if (_repeatsInput)
+            //     {
+            //     if (int.TryParse(value, out int result))
+            //     {
+            //         if (result < 1)
+            //             result = 1;
+
+            //         _repeatsInput.SetTextWithoutNotify(result.ToString());
+            //     }
+            //     else
+            //     _repeatsInput.text = Repeats.ToString();
+            //     }
+            // }
+        }
+
         public float MinSegmentLengthNormalized
         {
             get => Mathf.InverseLerp(_customSegmentLengthRange[0], _customSegmentLengthRange[1], MinSegmentLength);
             set => MinSegmentLength = Mathf.Lerp(_customSegmentLengthRange[0], _customSegmentLengthRange[1], value);
         }
 
+        private Vector2Int _outputFrameSize = new Vector2Int(0, 0);
         private Material _instancedDebugMaterial;
         private Material InstancedDebugMaterial => _instancedDebugMaterial ? _instancedDebugMaterial : _instancedDebugMaterial = Instantiate(_debugMaterial);
 
         float currentFrame = 0f;
 
         List<MiniAnimFrame> _frames = new List<MiniAnimFrame>();
+
+        public void ChangeMaxSizeString(string newMaxSize)
+        {
+            if (int.TryParse(newMaxSize, out int result))
+                ChangeMaxSize(result);
+        }
+
+        public void ChangeMaxSizeDropdown(int option)
+        {
+            if (option > 0 && _sizeInputBasic && option < _sizeInputBasic.options.Count)
+            {
+                Debug.Log(_sizeInputBasic.options[option].text);
+                ChangeMaxSizeString(_sizeInputBasic.options[option].text);
+            }
+        }
+
+        public void ChangeMaxSize(int newMaxSize)
+        {
+            if (_frames.Count > 0)
+                _outputFrameSize = _frames[0].FrameSize;
+
+            int maxVal = Mathf.Max(_outputFrameSize.x, _outputFrameSize.y);
+            if (maxVal != newMaxSize && newMaxSize > 0)
+            {
+                float scale = newMaxSize / (float)maxVal;
+                int newWidth = Mathf.RoundToInt(_outputFrameSize.x * scale);
+                int newHeight = Mathf.RoundToInt(_outputFrameSize.y * scale);
+
+                if (newWidth % 4 != 0)
+                    newWidth += 4 - newWidth % 4;
+                if (newHeight % 4 != 0)
+                    newHeight += 4 - newHeight % 4;
+
+                _outputFrameSize = new Vector2Int(newWidth, newHeight);
+            }
+
+            if (_sizeInputBasic)
+                _sizeInputBasic.SetValueWithoutNotify(0);
+            if (_sizeInput)
+                _sizeInput.SetTextWithoutNotify(Mathf.Max(_outputFrameSize.x, _outputFrameSize.y).ToString());
+        }
 
         public void LoadFromTemp()
         {
@@ -133,23 +221,48 @@ namespace MiniAnim
             }
         }
 
-        public void ExportFromTemp()
+        public void ExportFromTemp() => StartCoroutine(ExportFromTempDelayUnFrame());
+
+        IEnumerator ExportFromTempDelayUnFrame()
         {
+            _onExportStart.Invoke($"Exporting: {_outputFrameSize.x}x{_outputFrameSize.y}:{FrameRate}\nrepeats:{Repeats}");
+            yield return null;
+
             var files = System.IO.Directory.GetFiles(CachePath);
             System.Array.Sort(files);
             JavaBitmapToVideoEncoderWrapper.ClearFrames();
+            // Vector2Int frameSize = Vector2Int.zero;
             foreach (var filePath in files)
             {
                 var ext = System.IO.Path.GetExtension(filePath);
                 if (ext.Equals(".png") || ext.Equals(".jpg"))
                 {
+            //         // if (frameSize == Vector2Int.zero)
+            //         {
+            //             Texture2D imagenRecuperada = NativeCamera.LoadImageAtPath(filePath, -1, false, false);
+            //             if (imagenRecuperada == null)
+            //                 continue;
+
+            //             // frameSize = new Vector2Int(imagenRecuperada.width, imagenRecuperada.height);
+            //             Destroy(imagenRecuperada);
+            //         }
+
                     JavaBitmapToVideoEncoderWrapper.AddFrame(filePath);
                 }
             }
 
-            Debug.Log("sent to encode");
-            JavaBitmapToVideoEncoderWrapper.Encode(15);
+            if (_outputFrameSize != Vector2Int.zero)
+            {
+                Debug.Log("sent to encode");
+                JavaBitmapToVideoEncoderWrapper.Encode(_outputFrameSize.x, _outputFrameSize.y, Mathf.CeilToInt(FrameRate), Repeats, OnSuccessCallback, _onError.Invoke);
+            }
+            else
+            {
+                VerAnim(false);
+            }
         }
+
+        private void OnSuccessCallback(string data) => _onExportFinish.Invoke($"Exporting: {_outputFrameSize.x}x{_outputFrameSize.y}:{FrameRate}\nrepeats:{Repeats}\nurl:{data}");
 
         private void Update()
         {
@@ -354,9 +467,16 @@ namespace MiniAnim
             };
             using var homography = Cv2.FindHomography(srcPoints, dstPoints, _homographyMethod, _ransacReprojThreshold);
             using var warpedImg = new Mat();
+
+            if (maxWidth % 4 != 0)
+                maxWidth += 4 - maxWidth % 4;
+            if (maxHeight % 4 != 0)
+                maxHeight += 4 - maxHeight % 4;
+
             Cv2.WarpPerspective(inputMat, warpedImg, homography, new Size(maxWidth, maxHeight));
 
-            Cv2.Resize(warpedImg, warpedImg, new Size(480,360));
+            if (_outputFrameSize != Vector2Int.zero)
+                Cv2.Resize(warpedImg, warpedImg, new Size(_outputFrameSize.x, _outputFrameSize.y));
 
             return OpenCvSharp.Unity.MatToTexture(warpedImg, replaceTexture);
         }
@@ -369,6 +489,7 @@ namespace MiniAnim
             _lastAddedFrame.transform.SetSiblingIndex(frameIndex);
             _lastAddedFrame.gameObject.SetActive(true);
             _lastAddedFrame.TextureFrame = newTexture;
+            _lastAddedFrame.RecordOriginalFrameSize();
 
             ConfirmarNuevoFrame(newTexture);
         }
@@ -413,6 +534,9 @@ namespace MiniAnim
 
         public void ConfirmarNuevoFrameAceptar(string imgname = null)
         {
+            if (_frames.Count == 1)
+                ChangeMaxSize(-1);
+
             var createdTexture = _lastAddedFrame.TextureFrame;
             var encodedImageBytes = ImageConversion.EncodeToJPG(createdTexture);//ImageConversion.EncodeToPNG(createdTexture);
             bool guardarEnDisco = string.IsNullOrEmpty(imgname);

@@ -1,4 +1,4 @@
-package com.paco.BitmapToVideoEncoder;
+package com.paco.bitmaptovideoencoder;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -23,10 +23,15 @@ import io.reactivex.Completable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
 
+public interface IPluginCallback {
+    public void onEncodingComplete(String videoPath);
+    public void onError(String errorMessage);
+}
+
 public class BitmapToVideoEncoder {
     private static final String TAG = BitmapToVideoEncoder.class.getSimpleName();
 
-    private IBitmapToVideoEncoderCallback mCallback;
+    private IPluginCallback mCallback;
     private File mOutputFile;
     private Queue<String> mEncodeQueue = new ConcurrentLinkedQueue();
     private MediaCodec mediaCodec;
@@ -38,8 +43,8 @@ public class BitmapToVideoEncoder {
     private static final String MIME_TYPE = "video/avc"; // H.264 Advanced Video Coding
     private static int mWidth;
     private static int mHeight;
+    private static int mFrameRate = 6; // Frames per second
     private static final int BIT_RATE = 32000000;
-    private static final int FRAME_RATE = 6; // Frames per second
 
     private static final int I_FRAME_INTERVAL = 0;
 
@@ -52,8 +57,8 @@ public class BitmapToVideoEncoder {
         void onEncodingComplete(File outputFile);
     }
 
-    public BitmapToVideoEncoder() {
-        //mCallback = callback;
+    public BitmapToVideoEncoder(IPluginCallback callback) {
+        mCallback = callback;
     }
 
     public boolean isEncodingStarted() {
@@ -64,37 +69,41 @@ public class BitmapToVideoEncoder {
         return mEncodeQueue.size();
     }
 
-    public void startEncoding(int width, int height, String outputFileString) {
+    public void startEncoding(int width, int height, int frameRate, String outputFileString) {
         Log.e(TAG, "output file: "+outputFileString);
 
         mWidth = width;
         mHeight = height;
+        mFrameRate = frameRate;
         mOutputFile = new File(outputFileString);
 
         MediaCodecInfo codecInfo = selectCodec(MIME_TYPE);
         if (codecInfo == null) {
             Log.e(TAG, "Unable to find an appropriate codec for " + MIME_TYPE);
+            mCallback.onError("Unable to find an appropriate codec for " + MIME_TYPE);
             return;
         }
         Log.d(TAG, "found codec: " + codecInfo.getName());
-        int colorFormat;
-        try {
-            colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
-        } catch (Exception e) {
-            Log.e(TAG, "color format sad " + e.getMessage());
-            colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar;
-        }
+        int colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar;
+        // try {
+        //     colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
+        // } catch (Exception e) {
+        //     Log.e(TAG, "color format sad " + e.getMessage());
+        //     colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar;
+        // }
+        Log.d(TAG, "using color format: " + colorFormat);
 
         try {
             mediaCodec = MediaCodec.createByCodecName(codecInfo.getName());
         } catch (IOException e) {
             Log.e(TAG, "Unable to create MediaCodec " + e.getMessage());
+            mCallback.onError("Unable to create MediaCodec " + e.getMessage());
             return;
         }
 
         MediaFormat mediaFormat = MediaFormat.createVideoFormat(MIME_TYPE, mWidth, mHeight);
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE);
-        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
+        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, mFrameRate);
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL);
         mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
@@ -103,6 +112,7 @@ public class BitmapToVideoEncoder {
             mediaMuxer = new MediaMuxer(outputFileString, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         } catch (IOException e) {
             Log.e(TAG,"MediaMuxer creation failed. " + e.getMessage());
+            mCallback.onError("MediaMuxer creation failed. " + e.getMessage());
             return;
         }
 
@@ -163,12 +173,16 @@ public class BitmapToVideoEncoder {
             }
         }
     }
-    
+
     private Bitmap pollAndLoadBitmap()
     {
         try {
             //File f=new File(mEncodeQueue.poll());
             Bitmap b = BitmapFactory.decodeFile(mEncodeQueue.poll());
+            if (b.getWidth() != mWidth || b.getHeight() != mHeight)
+            {
+                b = Bitmap.createScaledBitmap(b, mWidth, mHeight ,true);
+            }
             return b;
         }
         catch (Exception e)
@@ -207,7 +221,7 @@ public class BitmapToVideoEncoder {
 
             long TIMEOUT_USEC = 500000;
             int inputBufIndex = mediaCodec.dequeueInputBuffer(TIMEOUT_USEC);
-            long ptsUsec = computePresentationTime(mGenerateIndex, FRAME_RATE);
+            long ptsUsec = computePresentationTime(mGenerateIndex, mFrameRate);
             if (inputBufIndex >= 0) {
                 final ByteBuffer inputBuffer = mediaCodec.getInputBuffer(inputBufIndex);
                 inputBuffer.clear();
@@ -244,8 +258,9 @@ public class BitmapToVideoEncoder {
 
         if (mAbort) {
             mOutputFile.delete();
+            mCallback.onError("Aborted");
         } else {
-            //mCallback.onEncodingComplete(mOutputFile);
+            mCallback.onEncodingComplete(mOutputFile.getAbsolutePath());
             Log.w(TAG, "Terminamos!");
         }
     }

@@ -16,18 +16,22 @@ public static class JavaBitmapToVideoEncoderWrapper
         _frames.Clear();
     }
 
-    public static void Encode(int repeats = 1)
+    public static void Encode(int width, int height, int frameRate, int repeats = 1, System.Action<string> onSuccess = null, System.Action<string> onError = null)
     {
 #if UNITY_ANDROID
-        if (Application.isEditor) return;
+        if (Application.isEditor) 
+        {
+            onSuccess?.Invoke("mentira todo fake");
+            return;
+        }
 
         using (var javaUnityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
         {
             using (var currentActivity = javaUnityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
             {
-                using (var androidPlugin = new AndroidJavaObject("com.paco.BitmapToVideoEncoder.BitmapToVideoEncoder"))
+                using (var androidPlugin = new AndroidJavaObject("com.paco.bitmaptovideoencoder.BitmapToVideoEncoder"))
                 {
-                    androidPlugin.Call("startEncoding", 480, 360, $"{Application.persistentDataPath}/savevid.mp4");
+                    androidPlugin.Call("startEncoding", width, height, frameRate, $"{Application.persistentDataPath}/savevid.mp4", new BitmapEncoderCallback(onSuccess, onError));
                     for (int i = 0; i < repeats; i++)
                     {
                         foreach (var frame in _frames)
