@@ -103,6 +103,9 @@ namespace MiniAnim
         private Mat _inputMat;
         private MiniAnimFrame _lastAddedFrame;
 
+        private string _errorCallbackMsg;
+        private string _doneCallbackMsg;
+
         public float FrameRate { get => _frameRate; set => _frameRate = value; }
 
         public float MinSegmentLength
@@ -254,7 +257,8 @@ namespace MiniAnim
             if (_outputFrameSize != Vector2Int.zero)
             {
                 Debug.Log("sent to encode");
-                JavaBitmapToVideoEncoderWrapper.Encode(_outputFrameSize.x, _outputFrameSize.y, Mathf.CeilToInt(FrameRate), Repeats, OnSuccessCallback, _onError.Invoke);
+                StartCoroutine(WaitForCallback());
+                JavaBitmapToVideoEncoderWrapper.Encode(_outputFrameSize.x, _outputFrameSize.y, Mathf.CeilToInt(FrameRate), Repeats, OnSuccessCallback, OnErrorCallback);
             }
             else
             {
@@ -262,7 +266,34 @@ namespace MiniAnim
             }
         }
 
-        private void OnSuccessCallback(string data) => _onExportFinish.Invoke($"Exporting: {_outputFrameSize.x}x{_outputFrameSize.y}:{FrameRate}\nrepeats:{Repeats}\nurl:{data}");
+        public void OpenVid()
+        {
+            Application.OpenURL($"{Application.persistentDataPath}/savevid.mp4");
+        }
+
+        IEnumerator WaitForCallback()
+        {
+            _errorCallbackMsg = string.Empty;
+            _doneCallbackMsg = string.Empty;
+            while (true)
+            {
+                yield return null;
+                if (string.IsNullOrEmpty(_errorCallbackMsg))
+                {
+                    _onError?.Invoke(_errorCallbackMsg);
+                    break;
+                }
+                else if (string.IsNullOrEmpty(_doneCallbackMsg))
+                {
+                    _doneCallbackMsg = $"Exporting: {_outputFrameSize.x}x{_outputFrameSize.y}:{FrameRate}\nrepeats:{Repeats}\nurl:{_doneCallbackMsg}";
+                    _onExportFinish?.Invoke(_doneCallbackMsg);
+                    break;
+                }
+            }
+        }
+
+        private void OnSuccessCallback(string data) => _doneCallbackMsg = data;
+        private void OnErrorCallback(string data) => _errorCallbackMsg = data;
 
         private void Update()
         {

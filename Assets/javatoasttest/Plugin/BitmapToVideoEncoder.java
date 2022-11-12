@@ -23,11 +23,6 @@ import io.reactivex.Completable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
 
-public interface IPluginCallback {
-    public void onEncodingComplete(String videoPath);
-    public void onError(String errorMessage);
-}
-
 public class BitmapToVideoEncoder {
     private static final String TAG = BitmapToVideoEncoder.class.getSimpleName();
 
@@ -55,6 +50,11 @@ public class BitmapToVideoEncoder {
 
     public interface IBitmapToVideoEncoderCallback {
         void onEncodingComplete(File outputFile);
+    }
+
+    public interface IPluginCallback {
+        public void onEncodingComplete(String videoPath);
+        public void onError(String errorMessage);
     }
 
     public BitmapToVideoEncoder(IPluginCallback callback) {
@@ -181,7 +181,10 @@ public class BitmapToVideoEncoder {
             Bitmap b = BitmapFactory.decodeFile(mEncodeQueue.poll());
             if (b.getWidth() != mWidth || b.getHeight() != mHeight)
             {
+                Bitmap old = b;
                 b = Bitmap.createScaledBitmap(b, mWidth, mHeight ,true);
+                old.recycle();
+                old = null;
             }
             return b;
         }

@@ -29,9 +29,9 @@ public static class JavaBitmapToVideoEncoderWrapper
         {
             using (var currentActivity = javaUnityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
             {
-                using (var androidPlugin = new AndroidJavaObject("com.paco.bitmaptovideoencoder.BitmapToVideoEncoder"))
+                using (var androidPlugin = new AndroidJavaObject("com.paco.bitmaptovideoencoder.BitmapToVideoEncoder", new BitmapEncoderCallback(onSuccess, onError)))
                 {
-                    androidPlugin.Call("startEncoding", width, height, frameRate, $"{Application.persistentDataPath}/savevid.mp4", new BitmapEncoderCallback(onSuccess, onError));
+                    androidPlugin.Call("startEncoding", width, height, frameRate, $"{Application.persistentDataPath}/savevid.mp4");
                     for (int i = 0; i < repeats; i++)
                     {
                         foreach (var frame in _frames)
