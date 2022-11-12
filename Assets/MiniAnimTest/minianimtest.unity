@@ -1373,8 +1373,8 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 33009926}
         m_TargetAssemblyTypeName: MiniAnim.MiniAnimManager, Assembly-CSharp
-        m_MethodName: ConfirmarNuevoFrameAceptar
-        m_Mode: 5
+        m_MethodName: OpenVid
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine

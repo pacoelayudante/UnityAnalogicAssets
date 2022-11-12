@@ -278,13 +278,15 @@ namespace MiniAnim
             while (true)
             {
                 yield return null;
-                if (string.IsNullOrEmpty(_errorCallbackMsg))
+                if (!string.IsNullOrEmpty(_errorCallbackMsg))
                 {
+                    Debug.Log(_errorCallbackMsg);
                     _onError?.Invoke(_errorCallbackMsg);
                     break;
                 }
-                else if (string.IsNullOrEmpty(_doneCallbackMsg))
+                else if (!string.IsNullOrEmpty(_doneCallbackMsg))
                 {
+                    Debug.Log(_doneCallbackMsg);
                     _doneCallbackMsg = $"Exporting: {_outputFrameSize.x}x{_outputFrameSize.y}:{FrameRate}\nrepeats:{Repeats}\nurl:{_doneCallbackMsg}";
                     _onExportFinish?.Invoke(_doneCallbackMsg);
                     break;

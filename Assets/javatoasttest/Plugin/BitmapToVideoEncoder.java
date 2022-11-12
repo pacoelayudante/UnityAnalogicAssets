@@ -263,8 +263,9 @@ public class BitmapToVideoEncoder {
             mOutputFile.delete();
             mCallback.onError("Aborted");
         } else {
-            mCallback.onEncodingComplete(mOutputFile.getAbsolutePath());
             Log.w(TAG, "Terminamos!");
+            Log.w(TAG, mOutputFile.getAbsolutePath());
+            mCallback.onEncodingComplete(mOutputFile.getAbsolutePath());
         }
     }
 
