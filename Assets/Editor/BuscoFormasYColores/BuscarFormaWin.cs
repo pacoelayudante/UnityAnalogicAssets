@@ -170,6 +170,7 @@ public class BuscarFormaWin : EditorWindow
                 var brillo = _tipoColor == TipoColor.HSV ? splits[2] : splits[1];
 
                 Cv2.Threshold(sat, sat, _thresh, 255f, _threshType);
+                VerTexturaSola.Mostrar(OpenCvSharp.Unity.MatToTexture(sat), true, true);
                 if (_setValueMax)
                     Cv2.Threshold(sat, brillo, _thresh, _maxVal, ThresholdTypes.Binary);
                 //brillo.SetTo(_maxVal);

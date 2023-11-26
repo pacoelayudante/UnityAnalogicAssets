@@ -124,7 +124,7 @@ namespace MiniAnim
             {
                 if (int.TryParse(RepeatsString, out int result))
                     return result;
-                return 15;
+                return 4;
             }
             // set => RepeatsString = value.ToString();
         }
@@ -268,7 +268,7 @@ namespace MiniAnim
 
         public void OpenVid()
         {
-            Application.OpenURL($"{Application.persistentDataPath}/savevid.mp4");
+            Application.OpenURL(_doneCallbackMsg);
         }
 
         IEnumerator WaitForCallback()
@@ -287,8 +287,7 @@ namespace MiniAnim
                 else if (!string.IsNullOrEmpty(_doneCallbackMsg))
                 {
                     Debug.Log(_doneCallbackMsg);
-                    _doneCallbackMsg = $"Exporting: {_outputFrameSize.x}x{_outputFrameSize.y}:{FrameRate}\nrepeats:{Repeats}\nurl:{_doneCallbackMsg}";
-                    _onExportFinish?.Invoke(_doneCallbackMsg);
+                    _onExportFinish?.Invoke($"Exporting: {_outputFrameSize.x}x{_outputFrameSize.y}:{FrameRate}\nrepeats:{Repeats}\nurl:{_doneCallbackMsg}");
                     break;
                 }
             }
