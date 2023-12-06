@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 955fdbcfe0224584c9da333f7bef4051, type: 3}
+  m_Name: ContourComparer
+  m_EditorClassIdentifier: 
+  _templateTexture: {fileID: 2800000, guid: 177d6d3c8ad10374f9652bf6bc196163, type: 3}
+  _queryTexture: {fileID: 2800000, guid: efe21dd91dc63aa40af175282ed43f2f, type: 3}
+  _templatesPreprocessor: {fileID: 11400000, guid: 2ea2f55d97d19734fbe6f935ef351111, type: 2}
+  _queryPreprocessor: {fileID: 11400000, guid: 2ea2f55d97d19734fbe6f935ef351111, type: 2}
+  _shapeMatchModes: 3
+  _shapeMatchParameter: 0
+  _labelBBoxSideLimits: {x: 7, y: 110}

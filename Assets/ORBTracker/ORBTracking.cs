@@ -19,6 +19,8 @@ public class ORBTracking : MonoBehaviour
     public Texture2D _outMatchesTexture;
     public Texture2D _warpedTexture;
 
+    public int edgeThresholdPatchSize = 31;
+
     [ContextMenu("Extract")]
     private void ExtractDescriptor()
     {
@@ -29,6 +31,8 @@ public class ORBTracking : MonoBehaviour
 
         using var queryMat = OpenCvSharp.Unity.TextureToMat(_query2DTexture);
         using var trainMat = OpenCvSharp.Unity.TextureToMat(_train2DTexture);
+
+        UnityEngine.Debug.Log($"queryMat type {queryMat.Type()} - trainMat type {trainMat.Type()}");
         // if (_srcMat == null && _src2DTexture)
         //     _srcMat = OpenCvSharp.Unity.TextureToMat(_src2DTexture);
 
@@ -40,7 +44,7 @@ public class ORBTracking : MonoBehaviour
 
         Stopwatch stopWatchORB = new Stopwatch();
         stopWatchORB.Start();
-        using var orb = ORB.Create(nFeatures: 500);
+        using var orb = ORB.Create(nFeatures: 500, patchSize: edgeThresholdPatchSize, edgeThreshold:edgeThresholdPatchSize);
 
         if (_queryDescriptors == null)
             _queryDescriptors = new Mat();
@@ -55,6 +59,8 @@ public class ORBTracking : MonoBehaviour
         Stopwatch stopWatchMatcher = new Stopwatch();
         stopWatchMatcher.Start();
         using var bfmatcher = new BFMatcher(NormTypes.Hamming, crossCheck: true);
+        UnityEngine.Debug.Log($"q descript {_queryDescriptors} || {_queryDescriptors?.Type()}");
+        UnityEngine.Debug.Log($"t descript {_trainDescriptors} || {_trainDescriptors?.Type()}");
         var matches = bfmatcher.Match(_queryDescriptors, _trainDescriptors);
         System.Array.Sort(matches, (a, b) => a.Distance.CompareTo(b.Distance));
 

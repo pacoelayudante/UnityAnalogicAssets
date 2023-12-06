@@ -18,5 +18,8 @@ MonoBehaviour:
   _hueTolerance: 20
   _saturacionValida: {x: 39, y: 255}
   _brilloValido: {x: 20, y: 189}
+  _labelBBoxSideLimits: {x: 8, y: 82}
   dilateCount: 2
-  erodeCount: 2
+  erodeCount: 0
+  _retrievalModes: 0
+  _contourApproximationModes: 4

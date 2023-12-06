@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Rect = UnityEngine.Rect;
+using CvRect = OpenCvSharp.Rect;
 using OpenCvSharp;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -32,6 +33,10 @@ public class SpaceshipFinder2 : ScriptableObject
     [SerializeField, MinMaxSlider(0, 255)]
     Vector2Int _brilloValido = new Vector2Int(0, 255);
 
+    [Space]
+    [SerializeField, MinMaxSlider(1, 120)]
+    Vector2Int _labelBBoxSideLimits = new Vector2Int(1, 120);
+
     // [SerializeField]
     // ThresholdTypes _saturationThreshType = ThresholdTypes.Binary;
 
@@ -40,12 +45,20 @@ public class SpaceshipFinder2 : ScriptableObject
     [SerializeField]
     int erodeCount = 2;
 
+    [Space]
+    [SerializeField]
+    private RetrievalModes _retrievalModes = RetrievalModes.External;
+    [SerializeField]
+    private ContourApproximationModes _contourApproximationModes = ContourApproximationModes.ApproxTC89KCOS;
+
     // [SerializeField, Range(1, 255)]
     // float _saturationThreshold = 127f;
+    Point[][] _contornos;
 
     public struct Resultados
     {
-        public System.Action<Mat> resultadoPrimerFiltro;
+        public System.Action<Mat> resultadoPrimerFiltroConExtras;
+        public System.Action<Point[][]> resultadoContornos;
     }
 
     public void ProcesarTextura(Texture2D inputTex2D, Resultados resultados)
@@ -77,15 +90,84 @@ public class SpaceshipFinder2 : ScriptableObject
             using (Mat primerFiltro = new Mat())
             {
                 Cv2.InRange(inputConverted, scalarMinimo, scalarMaximo, primerFiltro);
+
+                if (erodeCount > 0)
+                {
+                    using var kernel = new Mat();
+                    Cv2.Erode(primerFiltro, primerFiltro, kernel, null, erodeCount);
+                }
+
+                using (Mat clonePrimerFiltro = primerFiltro.Clone())
+                {
+                    Cv2.FindContours(clonePrimerFiltro, out _contornos, out HierarchyIndex[] jerarquia, _retrievalModes, _contourApproximationModes);
+                }
+
                 tempOutput.SetTo(Scalar.DarkSlateGray);
+
                 inputMat.CopyTo(tempOutput, primerFiltro);
-                //inputMat.set Cv2(inputMat, primerFiltro, tempOutput,)
-                resultados.resultadoPrimerFiltro?.Invoke(tempOutput);
+
+                using (Mat labelCentroids = new Mat())
+                using (Mat labelData = new Mat())
+                {
+                    Cv2.ConnectedComponentsWithStats(primerFiltro, primerFiltro, labelData, labelCentroids, PixelConnectivity.Connectivity8);
+                    List<CvRect> labelsBBox = new();
+
+                    primerFiltro.ConvertTo(primerFiltro, MatType.CV_8UC1);
+
+                    for (int i = 0, count = labelData.Rows; i < count; i++)
+                    {
+                        int left = labelData.Get<int>(i, (int)ConnectedComponentsTypes.Left) - 1;
+                        int top = labelData.Get<int>(i, (int)ConnectedComponentsTypes.Top) - 1;
+                        int w = labelData.Get<int>(i, (int)ConnectedComponentsTypes.Width) + 2;
+                        int h = labelData.Get<int>(i, (int)ConnectedComponentsTypes.Height) + 2;
+                        CvRect bboxRect = new CvRect(left, top, w, h);
+
+                        if (left < 0 || top < 0 || w >= inputMat.Width || h >= inputMat.Height)
+                            continue;
+
+                        if (w > _labelBBoxSideLimits[0] && w < _labelBBoxSideLimits[1] && h > _labelBBoxSideLimits[0] && h < _labelBBoxSideLimits[1])
+                        {
+                            labelsBBox.Add(bboxRect);
+                            Cv2.Rectangle(tempOutput, bboxRect, Scalar.IndianRed, 2);
+
+                            using (Mat distTransformConRoi = new Mat())
+                            using (Mat outputConRoi = new Mat(tempOutput, bboxRect))
+                            using (Mat primerFiltroConRoi = new Mat(primerFiltro, bboxRect))
+                            {
+                                //probar hacer adaptive threshold aca en vez de distance trasnform
+                                Cv2.DistanceTransform(primerFiltroConRoi, distTransformConRoi, DistanceTypes.L2, DistanceMaskSize.Mask5);
+                                Cv2.ConvertScaleAbs(distTransformConRoi, distTransformConRoi, 20f, 0f);
+
+                                Cv2.CvtColor(distTransformConRoi, distTransformConRoi, ColorConversionCodes.GRAY2BGR);
+                                Cv2.Multiply(distTransformConRoi, outputConRoi, outputConRoi);
+                                distTransformConRoi.CopyTo(outputConRoi);
+                                //ver de no tapar el dibujo sino crear mini texturas con cada roi
+                            }
+                            // break;
+                        }
+                    }
+
+                    Cv2.DrawContours(tempOutput, _contornos, -1, Scalar.AliceBlue);
+                    foreach (var cont in _contornos)
+                    {
+                        if (cont.Length <= 5) continue;
+                        // var ellipse = Cv2.FitEllipse(cont);
+                        var line = Cv2.FitLine(cont, DistanceTypes.L12, 0d, 0.01d, 0.01d);
+                        Cv2.Line(tempOutput,
+                            (int)(line.X1 - line.Vx * 10000), (int)(line.Y1 - line.Vy * 10000),
+                            (int)(line.X1 + line.Vx * 10000), (int)(line.Y1 + line.Vy * 10000), Scalar.Purple);
+                        // Cv2.Ellipse(tempOutput, ellipse, Scalar.Purple, 2);
+                        // Cv2.li
+                    }
+
+                    resultados.resultadoPrimerFiltroConExtras?.Invoke(tempOutput);
+                    resultados.resultadoContornos?.Invoke(_contornos);
+                }
             }
         }
     }
 
-    private class MinMaxSlider : PropertyAttribute
+    public class MinMaxSlider : PropertyAttribute
     {
         public readonly float min;
         public readonly float max;
@@ -95,6 +177,7 @@ public class SpaceshipFinder2 : ScriptableObject
             this.max = max;
         }
     }
+
 #if UNITY_EDITOR
     [CustomPropertyDrawer(typeof(MinMaxSlider))]
     private class MinMaxSliderDrawer : PropertyDrawer
@@ -171,7 +254,7 @@ public class SpaceshipFinder2 : ScriptableObject
                 if (changed.changed)
                 {
                     if (texturaInput != null)
-                        _finderTarget.ProcesarTextura(texturaInput, new Resultados() { resultadoPrimerFiltro = OnPrimerResultado });
+                        _finderTarget.ProcesarTextura(texturaInput, new Resultados() { resultadoPrimerFiltroConExtras = OnPrimerResultado });
                 }
             }
         }
