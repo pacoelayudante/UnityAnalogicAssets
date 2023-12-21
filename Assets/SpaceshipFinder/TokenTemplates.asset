@@ -1,0 +1,222 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f0eb48eb1aad93428b0aa371f03a495, type: 3}
+  m_Name: TokenTemplates
+  m_EditorClassIdentifier: 
+  tokenTemplates:
+  - contorno:
+    - X: 29
+      Y: 303
+    - X: 29
+      Y: 316
+    - X: 55
+      Y: 316
+    - X: 59
+      Y: 314
+    - X: 61
+      Y: 312
+    - X: 62
+      Y: 310
+    - X: 62
+      Y: 308
+    - X: 58
+      Y: 304
+    - X: 56
+      Y: 303
+    - X: 52
+      Y: 302
+    cvRect:
+      X: 29
+      Y: 302
+      Width: 34
+      Height: 15
+    modoDeToken: 1
+  - contorno:
+    - X: 30
+      Y: 234
+    - X: 28
+      Y: 235
+    - X: 27
+      Y: 237
+    - X: 28
+      Y: 239
+    - X: 31
+      Y: 244
+    - X: 31
+      Y: 247
+    - X: 30
+      Y: 248
+    - X: 30
+      Y: 250
+    - X: 31
+      Y: 257
+    - X: 28
+      Y: 263
+    - X: 29
+      Y: 265
+    - X: 38
+      Y: 265
+    - X: 41
+      Y: 262
+    - X: 45
+      Y: 257
+    - X: 56
+      Y: 257
+    - X: 60
+      Y: 256
+    - X: 64
+      Y: 255
+    - X: 68
+      Y: 253
+    - X: 77
+      Y: 248
+    - X: 73
+      Y: 246
+    - X: 69
+      Y: 244
+    - X: 64
+      Y: 242
+    - X: 58
+      Y: 241
+    - X: 43
+      Y: 241
+    - X: 40
+      Y: 238
+    - X: 40
+      Y: 237
+    - X: 38
+      Y: 235
+    - X: 36
+      Y: 234
+    cvRect:
+      X: 27
+      Y: 234
+      Width: 51
+      Height: 32
+    modoDeToken: 0
+  - contorno:
+    - X: 31
+      Y: 144
+    - X: 32
+      Y: 147
+    - X: 35
+      Y: 149
+    - X: 36
+      Y: 152
+    - X: 36
+      Y: 163
+    - X: 34
+      Y: 165
+    - X: 27
+      Y: 164
+    - X: 22
+      Y: 166
+    - X: 21
+      Y: 168
+    - X: 21
+      Y: 175
+    - X: 22
+      Y: 187
+    - X: 25
+      Y: 190
+    - X: 33
+      Y: 189
+    - X: 35
+      Y: 189
+    - X: 37
+      Y: 191
+    - X: 38
+      Y: 204
+    - X: 34
+      Y: 207
+    - X: 34
+      Y: 210
+    - X: 36
+      Y: 211
+    - X: 39
+      Y: 211
+    - X: 54
+      Y: 210
+    - X: 55
+      Y: 208
+    - X: 54
+      Y: 206
+    - X: 51
+      Y: 204
+    - X: 51
+      Y: 200
+    - X: 52
+      Y: 196
+    - X: 53
+      Y: 192
+    - X: 54
+      Y: 190
+    - X: 56
+      Y: 188
+    - X: 58
+      Y: 187
+    - X: 63
+      Y: 186
+    - X: 83
+      Y: 183
+    - X: 88
+      Y: 181
+    - X: 92
+      Y: 181
+    - X: 94
+      Y: 179
+    - X: 95
+      Y: 177
+    - X: 98
+      Y: 176
+    - X: 98
+      Y: 174
+    - X: 95
+      Y: 173
+    - X: 94
+      Y: 172
+    - X: 94
+      Y: 171
+    - X: 93
+      Y: 170
+    - X: 91
+      Y: 169
+    - X: 83
+      Y: 169
+    - X: 74
+      Y: 168
+    - X: 67
+      Y: 167
+    - X: 60
+      Y: 166
+    - X: 55
+      Y: 165
+    - X: 52
+      Y: 162
+    - X: 51
+      Y: 160
+    - X: 50
+      Y: 157
+    - X: 49
+      Y: 154
+    - X: 49
+      Y: 149
+    - X: 52
+      Y: 146
+    - X: 51
+      Y: 143
+    cvRect:
+      X: 21
+      Y: 143
+      Width: 78
+      Height: 69
+    modoDeToken: 0

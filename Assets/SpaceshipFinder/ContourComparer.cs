@@ -118,6 +118,8 @@ public class ContourComparer : ScriptableObject
                 {
                     double similarity = Cv2.MatchShapes(templateCont, queryCont, _shapeMatchModes);
                     var rect = new Rect(cvrect.Left, queryMat.Height - cvrect.Bottom, cvrect.Width, cvrect.Height);
+                    rect.min -= Vector2.one * 3f;
+                    rect.max += Vector2.one * 3f;
                     var rotRect = Cv2.FitEllipse(queryCont);
                     matches.Add(new Match() { rect = rect, similarity = similarity, angle = rotRect.Angle });
                 }

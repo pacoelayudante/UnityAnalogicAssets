@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dffaa818044e7d8459400a34bb80e7a8, type: 3}
+  m_Name: Token Detector
+  m_EditorClassIdentifier: 
+  _tipoHue: 0
+  _tokenTemplates: {fileID: 11400000, guid: 7c8591bd368eb0e498da15b516910731, type: 2}
+  _blobsPurpura: {fileID: 11400000, guid: bb30835d7a9034440856342702fc9c07, type: 2}
+  _blobsAmarillos: {fileID: 11400000, guid: 9e6262d2f44af7d4087212d131bb49a0, type: 2}
+  _blobsFuxia: {fileID: 11400000, guid: 571f49eca90c84044ad65ef52067b175, type: 2}
+  _shapeMatchModes: 3

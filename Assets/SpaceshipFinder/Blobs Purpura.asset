@@ -9,17 +9,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 799f423974fa2d441a8c09af99c831e4, type: 3}
-  m_Name: SpaceshipFinder 2
+  m_Script: {fileID: 11500000, guid: 35da7c507eaea0d44801574cca223132, type: 3}
+  m_Name: Blobs Purpura
   m_EditorClassIdentifier: 
-  _inputTexture: {fileID: 2800000, guid: 0a25c2ccf7b6dde4b8542d32d2ba960c, type: 3}
-  _tipoColor: 0
   _hue: 142
   _hueTolerance: 20
   _saturacionValida: {x: 39, y: 255}
-  _brilloValido: {x: 20, y: 189}
-  _labelBBoxSideLimits: {x: 8, y: 82}
-  dilateCount: 2
-  erodeCount: 0
+  _brilloValido: {x: 20, y: 131}
   _retrievalModes: 0
   _contourApproximationModes: 4
