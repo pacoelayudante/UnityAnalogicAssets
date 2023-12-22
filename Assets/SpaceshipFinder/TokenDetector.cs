@@ -11,6 +11,9 @@ using UnityEditor;
 [CreateAssetMenu]
 public class TokenDetector : ScriptableObject
 {
+    public const int EQUIPO_PURPURA = 0;
+    public const int EQUIPO_AMARILLO = 1;
+
     public TipoHue _tipoHue = TipoHue.HSV;
 
     public TokenTemplates _tokenTemplates;
@@ -25,12 +28,12 @@ public class TokenDetector : ScriptableObject
     {
         public TokenTemplates.TokenTemplate token;
         public double divergencia;
-
-        public float orientacionGrados;
     }
 
     public class TokenEncontrado
     {
+        public int equipo;
+
         public Point[] contorno;
         public CvRect cvBBox;
         public Rect uvBBox;
@@ -40,8 +43,20 @@ public class TokenDetector : ScriptableObject
         public Point2d centroideContorno;
         public Point2d centroideHull;
 
+        public Point2f centroCirculo;
+        public float radioCirculo;
+
+        public List<Point2d> puntosArmas = new();
+        public int indiceArmaCentral = 0;
+
+        public Point2d ArmaCentral => puntosArmas.Count > 0 ? puntosArmas[indiceArmaCentral] : centroideContorno;
+
         public List<ComparacionTemplate> comparacionesOrdenadas = new();
         public Dictionary<TokenTemplates.TokenTemplate, ComparacionTemplate> comparaciones = new();
+
+        public TokenTemplates.TokenTemplate TemplateMasPosible => comparacionesOrdenadas == null || comparacionesOrdenadas.Count == 0 ? null : comparacionesOrdenadas[0].token;
+        public TokenTemplates.TipoTam TipoTam => TemplateMasPosible == null ? TokenTemplates.TipoTam.Menor : TemplateMasPosible.tipoTam;
+        public int OrdenDeDisparo => TemplateMasPosible == null ? -1 : TemplateMasPosible.ordenDeDisparo;
 
         public TokenEncontrado(Point[] contorno, float hMat, TokenTemplates.TokenTemplate[] templates, ShapeMatchModes shapeMatchModes)
         {
@@ -62,14 +77,131 @@ public class TokenDetector : ScriptableObject
 
             comparacionesOrdenadas.Sort((matchA, matchB) => matchA.divergencia.CompareTo(matchB.divergencia));
 
-            // var mejorComparacion = comparacionesOrdenadas[0];
             areaRect = cvBBox.Width * cvBBox.Height;
             convexHull = Cv2.ConvexHull(contorno);
 
+            Cv2.MinEnclosingCircle(contorno, out centroCirculo, out radioCirculo);// pa los escudos
+
             var moments = Cv2.Moments(contorno);
-            centroideContorno = new Point2d((moments.M10 / moments.M00), (moments.M01 / moments.M00));
+            if (moments.M00 == 0d)
+                centroideContorno = cvBBox.Center;
+            else
+                centroideContorno = new Point2d((moments.M10 / moments.M00), (moments.M01 / moments.M00));
+
             moments = Cv2.Moments(convexHull);
-            centroideHull = new Point2d((moments.M10 / moments.M00), (moments.M01 / moments.M00));
+            if (moments.M00 == 0d)
+                centroideContorno = contorno[0];
+            else
+                centroideHull = new Point2d((moments.M10 / moments.M00), (moments.M01 / moments.M00));
+        }
+
+        public void AgregarArma(Point[] contorno, Point centroFallback)
+        {
+            var moments = Cv2.Moments(contorno);
+            Point2d centroide = moments.M00 == 0 ? centroFallback : new Point2d((moments.M10 / moments.M00), (moments.M01 / moments.M00));
+
+            if (puntosArmas.Count > 0)
+            {
+                var centralActual = puntosArmas[indiceArmaCentral];
+                var dMin = centroideContorno.DistanceTo(centralActual);
+                var dNueva = centroideContorno.DistanceTo(centroide);
+                if (dNueva < dMin)
+                {
+                    indiceArmaCentral = puntosArmas.Count;
+                }
+            }
+
+            puntosArmas.Add(centroide);
+        }
+    }
+
+    public class TokenDisparador
+    {
+        public CvRect cvBBox;
+        public Rect uvBBox;
+
+        public Point[] contorno;
+        public Point2d[] localMaximas;
+
+        public int indiceCentral = 0;
+        public Point2d LocalMaximaCentral => localMaximas[indiceCentral];
+
+        public Texture2D resultado;
+
+        public List<TokenEncontrado> tokenConArmasCercanos;
+
+        public TokenDisparador(Point[] contorno, CvRect cvBBox, Mat matBinario)
+        {
+            this.cvBBox = cvBBox;
+            this.contorno = contorno;
+            uvBBox = new Rect(cvBBox.Left, matBinario.Height - cvBBox.Bottom, cvBBox.Width, cvBBox.Height);
+
+            cvBBox.X -= 1;
+            cvBBox.Y -= 1;
+            cvBBox.Width += 2;
+            cvBBox.Height += 2;
+
+            using (var matBinarioRoi = new Mat(matBinario, cvBBox))
+            using (var matDilate = new Mat())
+            // using (var matKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5)))
+            // using (var matKernel = new Mat())
+            {
+                Cv2.DistanceTransform(matBinarioRoi, matBinarioRoi, DistanceTypes.C, DistanceMaskSize.Mask3);
+                Cv2.ConvertScaleAbs(matBinarioRoi, matBinarioRoi, 60f, 0f);
+                Cv2.MinMaxLoc(matBinarioRoi, out double minValue, out double maxValue);
+                // Debug.Log($"min value es {minValue} y maxValue es {maxValue}");
+                // Cv2.Dilate(matBinarioRoi, matDilate, matKernel);
+                // Cv2.Compare(matBinarioRoi, matDilate, matBinarioRoi, CmpTypes.EQ);
+                Cv2.Threshold(matBinarioRoi, matDilate, maxValue * .5f, 255d, ThresholdTypes.Binary);
+
+                // resultado = OpenCvSharp.Unity.MatToTexture(matDilate);
+
+                Cv2.FindContours(matDilate, out Point[][] contornos, out HierarchyIndex[] indices, RetrievalModes.External, ContourApproximationModes.ApproxNone);
+                localMaximas = new Point2d[contornos.Length];
+
+                // Cv2.FindNonZero(matBinarioRoi, matKernel);
+                // localMaximas = new Point[matKernel.Rows];
+
+                double distMinCentral = double.MaxValue;
+                for (int i = 0; i < localMaximas.Length; i++)
+                {
+                    // var subBBox = Cv2.BoundingRect(contornos[i]);
+                    // using (var distTransfRoi = new Mat(matBinarioRoi, subBBox))
+                    // {
+                    //     Cv2.MinMaxLoc(distTransfRoi, out Point minLoc, out Point maxLoc);
+                    //     localMaximas[i] = maxLoc + subBBox.TopLeft;
+                    // }
+
+                    // localMaximas[i] = matKernel.At<Point>(i);
+                    // localMaximas[i] = contornos[i][0];
+
+                    // localMaximas[i] = Cv2.BoundingRect(contornos[i]).Center;
+
+                    var moments = Cv2.Moments(contornos[i]);
+                    var centroide = new Point2d((moments.M10 / moments.M00)+cvBBox.TopLeft.X, (moments.M01 / moments.M00)+cvBBox.TopLeft.Y);
+                    // localMaximas[i] = centroide;
+                    localMaximas[i] = centroide;//new Point(centroide.X, centroide.Y);
+
+                    var distConCentral = cvBBox.Center.DistanceTo(centroide);
+                    if (distConCentral < distMinCentral)
+                    {
+                        distMinCentral = distConCentral;
+                        indiceCentral = i;
+                    }
+                }
+            }
+        }
+
+        public void AgregarTokensConArmas(List<TokenEncontrado> tokenEncontradosConArmas)
+        {
+            tokenConArmasCercanos = new List<TokenEncontrado>(tokenEncontradosConArmas);
+            tokenConArmasCercanos.Sort((a, b) => a.ArmaCentral.DistanceTo(LocalMaximaCentral).CompareTo(b.ArmaCentral.DistanceTo(LocalMaximaCentral)));
+        }
+
+        ~TokenDisparador()
+        {
+            if (resultado)
+                DestroyImmediate(resultado);
         }
     }
 
@@ -77,12 +209,14 @@ public class TokenDetector : ScriptableObject
     {
         public List<TokenEncontrado> tokensPurpura;
         public List<TokenEncontrado> tokensAmarillo;
-        public Point[][] contornosFuxia;
+        public List<TokenEncontrado> todosLosTokens;
+        public List<TokenDisparador> tokensDisparadores;
+        public List<float> areasReferencia = new();
+        public float medianArea = 0f;
     }
 
     public void Detectar(Texture2D texture2D, out Resultados resultados)
     {
-        using (Mat outBlobMat = new Mat())
         using (Mat testMat = OpenCvSharp.Unity.TextureToMat(texture2D))
         {
             Cv2.CvtColor(testMat, testMat, _tipoHue == TipoHue.HSV ? ColorConversionCodes.BGR2HSV : ColorConversionCodes.BGR2HLS);
@@ -101,8 +235,15 @@ public class TokenDetector : ScriptableObject
 
             for (int i = 0; i < contornosP.Length; i++)
             {
-                // resultados.tokensPurpura.Add(ProcesarTokenEncontrado(contornos[i], hueInputMat.Height));
-                resultados.tokensPurpura.Add(new TokenEncontrado(contornosP[i], hueInputMat.Height, _tokenTemplates.tokenTemplates, _shapeMatchModes));
+                if (contornosP[i].Length <= 2) // una lina sin area ni nada muy complicado.. o un punto osea nada que ver
+                    continue;
+
+                var nuevoToken = new TokenEncontrado(contornosP[i], hueInputMat.Height, _tokenTemplates.tokenTemplates, _shapeMatchModes)
+                { equipo = EQUIPO_PURPURA };
+                resultados.tokensPurpura.Add(nuevoToken);
+
+                if (nuevoToken.TipoTam == TokenTemplates.TipoTam.Referencia)
+                    resultados.areasReferencia.Add(nuevoToken.areaRect);
             }
 
             _blobsAmarillos.FromHueMat(hueInputMat, tipoHue, resultadoBinario, out Point[][] contornosA, out HierarchyIndex[] jerarquiasA);
@@ -111,45 +252,66 @@ public class TokenDetector : ScriptableObject
 
             for (int i = 0; i < contornosA.Length; i++)
             {
-                // resultados.tokensAmarillo.Add(ProcesarTokenEncontrado(contornos[i], hueInputMat.Height));
-                resultados.tokensAmarillo.Add(new TokenEncontrado(contornosA[i], hueInputMat.Height, _tokenTemplates.tokenTemplates, _shapeMatchModes));
+                if (contornosA[i].Length <= 2) // una lina sin area ni nada muy complicado.. o un punto osea nada que ver
+                    continue;
+                
+                var nuevoToken = new TokenEncontrado(contornosA[i], hueInputMat.Height, _tokenTemplates.tokenTemplates, _shapeMatchModes)
+                { equipo = EQUIPO_AMARILLO };
+                resultados.tokensAmarillo.Add(nuevoToken);
+
+                if (nuevoToken.TipoTam == TokenTemplates.TipoTam.Referencia)
+                    resultados.areasReferencia.Add(nuevoToken.areaRect);
             }
 
-            _blobsFuxia.FromHueMat(hueInputMat, tipoHue, resultadoBinario, out resultados.contornosFuxia, out HierarchyIndex[] jerarquias2, resultadoBinario);
+            if (resultados.areasReferencia.Count > 0)
+            {
+                resultados.areasReferencia.Sort();
+                resultados.medianArea = resultados.areasReferencia[resultados.areasReferencia.Count / 2];
+            }
 
-            Cv2.DistanceTransform(resultadoBinario, resultadoBinario, DistanceTypes.L2, DistanceMaskSize.Precise);
+            _blobsFuxia.FromHueMat(hueInputMat, tipoHue, resultadoBinario, out Point[][] contornosF, out HierarchyIndex[] jerarquias2, resultadoBinario);
+
+            resultados.todosLosTokens = new List<TokenEncontrado>();
+            resultados.todosLosTokens.AddRange(resultados.tokensPurpura);
+            resultados.todosLosTokens.AddRange(resultados.tokensAmarillo);
+
+            foreach (var token in resultados.todosLosTokens)
+            {
+                if (token.areaRect < resultados.medianArea)
+                {
+                    token.comparacionesOrdenadas.RemoveAll(comp => comp.token.tipoTam == TokenTemplates.TipoTam.Mayor);
+                }
+            }
+
+            resultados.tokensDisparadores = new();
+            
+            for (int i = 0; i < contornosF.Length; i++)
+            {
+                var cvBBox = Cv2.BoundingRect(contornosF[i]);
+
+                // si esta adentro de algun contorno, el valor es positivo y esta dentro de otro token asique lo ignoramos
+                // en realidad, se lo tendriamos que agregar al token tal vez
+                if (resultados.todosLosTokens.Find(test => Cv2.PointPolygonTest(test.contorno, cvBBox.Center, false) > 0d) is TokenEncontrado token)
+                {
+                    token.AgregarArma(contornosF[i], cvBBox.Center);
+                    continue;
+                }
+
+                var nuevoTokenDisparo = new TokenDisparador(contornosF[i], cvBBox, resultadoBinario);
+                resultados.tokensDisparadores.Add(nuevoTokenDisparo);
+            }
+            
+            var navesConArmas = new List<TokenEncontrado>(resultados.todosLosTokens);
+            navesConArmas.RemoveAll(el => el.puntosArmas.Count == 0);
+            foreach (var tokenDisparo in resultados.tokensDisparadores)
+            {
+                tokenDisparo.AgregarTokensConArmas(navesConArmas);
+            }
+
+            // Cv2.DistanceTransform(resultadoBinario, resultadoBinario, DistanceTypes.L2, DistanceMaskSize.Precise);
             // Cv2.ConvertScaleAbs(resultadoBinario, resultadoBinario, 60f, 0f);
         }
     }
-
-    // public TokenEncontrado ProcesarTokenEncontrado(Point[] contorno, float hMat)
-    // {
-    //     // var cvBBox = Cv2.BoundingRect(contorno);
-    //     var token = new TokenEncontrado(contorno, hMat, );
-    //     // {
-    //     //     contorno = contorno,
-    //     //     cvBBox = cvBBox,
-    //     //     uvBBox = new Rect(cvBBox.Left, hMat - cvBBox.Bottom, cvBBox.Width, cvBBox.Height)
-    //     // };
-
-    //     // for (int i=0; i<_tokenTemplates.tokenTemplates.Length; i++)
-    //     // foreach (var template in _tokenTemplates.tokenTemplates)
-    //     // {
-    //     //     var comparacion = new ComparacionTemplate()
-    //     //     {
-    //     //         token = template,
-    //     //         divergencia = Cv2.MatchShapes(contorno, template.contorno, _shapeMatchModes)
-    //     //     };
-    //     //     token.comparaciones[template] = comparacion;
-    //     //     token.comparacionesOrdenadas.Add(comparacion);
-    //     // }
-
-    //     token.comparacionesOrdenadas.Sort((matchA, matchB) => matchA.divergencia.CompareTo(matchB.divergencia));
-
-    //     var mejorComparacion = token.comparacionesOrdenadas[0];
-
-    //     return token;
-    // }
 
 #if UNITY_EDITOR
     [CustomEditor(typeof(TokenDetector))]
@@ -158,11 +320,9 @@ public class TokenDetector : ScriptableObject
         RenderTexture _renderTexture;
         private Texture2D _texturaInput;
         Texture2D _testResultado;
-        // List<TokenEncontrado> tokenEncontrados;
 
         private Material material;
         TokenDetector detector;
-        // TipoHue _tipoHue = TipoHue.HSV;
         Resultados resultados;
 
         Vector2 scroll;
@@ -201,27 +361,26 @@ public class TokenDetector : ScriptableObject
 
             _texturaInput = (Texture2D)EditorGUILayout.ObjectField("Templates Image", _texturaInput, typeof(Texture2D), allowSceneObjects: false);
             EditorGUILayout.ObjectField("Resultado", _testResultado, typeof(Texture2D), allowSceneObjects: false);
-            // _tipoHue = (TipoHue)EditorGUILayout.EnumPopup(_tipoHue);
             DrawDefaultInspector();
 
             if (GUILayout.Button("Detectar"))
             {
                 if (_texturaInput != null)
                 {
-                    // using (Mat outBlobMat = new Mat())
-                    // {
                     detector.Detectar(_texturaInput, out resultados);
-                    // _testResultado = OpenCvSharp.Unity.MatToTexture(outBlobMat, _testResultado);
-                    // }
                 }
             }
+
+            var textureSize = _texturaInput ? _texturaInput.texelSize : Vector2.one;
 
             using (var escroll = new EditorGUILayout.ScrollViewScope(scroll))
             {
                 scroll = escroll.scrollPosition;
                 if (detector._tokenTemplates != null)
                 {
-                    var textureSize = _texturaInput ? _texturaInput.texelSize : Vector2.one;
+                    if (resultados != null)
+                        EditorGUILayout.FloatField("Median Area Refe", resultados.medianArea);
+
                     for (int i = 0; i < detector._tokenTemplates.tokenTemplates.Length; i++)
                     {
                         using (new EditorGUILayout.HorizontalScope())
@@ -231,23 +390,25 @@ public class TokenDetector : ScriptableObject
                             var guirect = GUILayoutUtility.GetRect(template.cvRect.Width, template.cvRect.Height, GUILayout.ExpandWidth(false));
 
                             DibujarContorno(guirect, -template.cvRect.TopLeft.X, -template.cvRect.TopLeft.Y, template.contorno, Color.black);
+
                             if (resultados?.tokensPurpura != null)
                             {
                                 foreach (var encontrado in resultados.tokensPurpura)
                                 {
-                                    if (encontrado.comparacionesOrdenadas[0].token == template)
+                                    if (encontrado.TemplateMasPosible == template)
                                     {
-                                        TokenEntcontradoGUI(guirect, encontrado, textureSize);
+                                        TokenEntcontradoGUI(encontrado, textureSize);
                                     }
                                 }
                             }
+
                             if (resultados?.tokensAmarillo != null)
                             {
                                 foreach (var encontrado in resultados.tokensAmarillo)
                                 {
-                                    if (encontrado.comparacionesOrdenadas[0].token == template)
+                                    if (encontrado.TemplateMasPosible == template)
                                     {
-                                        TokenEntcontradoGUI(guirect, encontrado, textureSize);
+                                        TokenEntcontradoGUI(encontrado, textureSize);
                                     }
                                 }
                             }
@@ -255,21 +416,84 @@ public class TokenDetector : ScriptableObject
                         }
                     }
                 }
+
+                if (resultados?.tokensDisparadores != null)
+                {
+                    foreach (var disparadores in resultados.tokensDisparadores)
+                    {
+                        TokenDisparadorGUI(disparadores, textureSize);
+                    }
+                }
             }
         }
 
-        private void TokenEntcontradoGUI(Rect guirect, TokenEncontrado encontrado, Vector2 textureSize)
+        private void TokenEntcontradoGUI(TokenEncontrado encontrado, Vector2 textureSize)
         {
             var bboxFound = encontrado.uvBBox;
-            guirect = GUILayoutUtility.GetRect(bboxFound.width, bboxFound.height, GUILayout.ExpandWidth(false));
+            var guirect = GUILayoutUtility.GetRect(bboxFound.width, bboxFound.height, GUILayout.ExpandWidth(false));
             if (_texturaInput)
                 GUI.DrawTextureWithTexCoords(guirect, _texturaInput, new Rect(bboxFound.position * textureSize, bboxFound.size * textureSize));
-            DibujarContorno(guirect, -encontrado.cvBBox.TopLeft.X, -encontrado.cvBBox.TopLeft.Y, encontrado.contorno, Color.black);
-            DibujarContorno(guirect, -encontrado.cvBBox.TopLeft.X, -encontrado.cvBBox.TopLeft.Y, encontrado.convexHull, Color.yellow);
+            DibujarContorno(guirect, -encontrado.cvBBox.TopLeft.X, -encontrado.cvBBox.TopLeft.Y + 1, encontrado.contorno, Color.black);
+            DibujarContorno(guirect, -encontrado.cvBBox.TopLeft.X, -encontrado.cvBBox.TopLeft.Y + 1, encontrado.convexHull, Color.yellow);
 
-            var pA = encontrado.centroideContorno;
-            var pB = -(encontrado.centroideHull - encontrado.centroideContorno) * 10 + encontrado.centroideContorno;
+            var pA = (encontrado.centroideHull - encontrado.centroideContorno) * 5 + encontrado.centroideContorno;
+            var pB = (encontrado.centroideHull - encontrado.centroideContorno) * 10 + encontrado.centroideContorno;
             DibujarLinea(guirect, -encontrado.cvBBox.TopLeft.X + (float)pA.X, -encontrado.cvBBox.TopLeft.Y + (float)pA.Y, -encontrado.cvBBox.TopLeft.X + (float)pB.X, -encontrado.cvBBox.TopLeft.Y + (float)pB.Y, Color.cyan);
+
+            foreach (var p in encontrado.puntosArmas)
+            {
+                DibujarCirculo(guirect, (float)p.X - encontrado.cvBBox.TopLeft.X, (float)p.Y + 1 - encontrado.cvBBox.TopLeft.Y, .5f, Color.cyan);
+                if (p == encontrado.puntosArmas[encontrado.indiceArmaCentral])
+                    DibujarCirculo(guirect, (float)p.X - encontrado.cvBBox.TopLeft.X, (float)p.Y + 1 - encontrado.cvBBox.TopLeft.Y, 1.2f, Color.cyan);
+            }
+
+            var tooltip = $"Area:{encontrado.areaRect}\nArmas: {encontrado.puntosArmas.Count}\n";
+            foreach (var arma in encontrado.puntosArmas)
+            {
+                tooltip += $"({arma.X},{arma.Y})\n";
+            }
+
+
+            GUI.Label(guirect, new GUIContent(string.Empty, tooltip));
+        }
+
+        private void TokenDisparadorGUI(TokenDisparador disparador, Vector2 textureSize)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var bboxFound = disparador.uvBBox;
+                var guirect = GUILayoutUtility.GetRect(bboxFound.width * 3, bboxFound.height * 3, GUILayout.ExpandWidth(false));
+                if (_texturaInput)
+                    GUI.DrawTextureWithTexCoords(guirect, _texturaInput, new Rect(bboxFound.position * textureSize, bboxFound.size * textureSize));
+
+                foreach (var p in disparador.localMaximas)
+                {
+                    DibujarCirculo(guirect, (float)(p.X - disparador.cvBBox.TopLeft.X)*3, (float)(p.Y - disparador.cvBBox.TopLeft.Y)*3, .5f, Color.cyan);
+                    if (p == disparador.localMaximas[disparador.indiceCentral])
+                        DibujarCirculo(guirect, (float)(p.X - disparador.cvBBox.TopLeft.X)*3, (float)(p.Y - disparador.cvBBox.TopLeft.Y) * 3, 1.2f, Color.cyan);
+                }
+
+                if (disparador.resultado)
+                {
+                    guirect = GUILayoutUtility.GetRect(disparador.resultado.width * 3, disparador.resultado.height * 3, GUILayout.ExpandWidth(false));
+                    GUI.DrawTexture(guirect, disparador.resultado);
+                    foreach (var p in disparador.localMaximas)
+                    {
+                        DibujarCirculo(guirect, (float)p.X * 3, (float)p.Y * 3, .5f, Color.cyan);
+                        if (p == disparador.localMaximas[disparador.indiceCentral])
+                            DibujarCirculo(guirect, (float)p.X * 3, (float)p.Y * 3, 1.2f, Color.cyan);
+                    }
+                }
+
+                if (disparador.tokenConArmasCercanos.Count > 0)
+                {
+                    var tc = disparador.tokenConArmasCercanos[0];
+                    TokenEntcontradoGUI(tc,textureSize);
+                }
+
+                GUILayout.Label($"Cant Maximas: {disparador.localMaximas.Length}", GUILayout.ExpandWidth(false));
+                GUILayout.Label($"Cant Cercanos: {disparador.tokenConArmasCercanos.Count}", GUILayout.ExpandWidth(false));
+            }
         }
 
         private void DibujarContorno(Rect rect, float offsetX, float offsetY, Point[] contorno, Color col)

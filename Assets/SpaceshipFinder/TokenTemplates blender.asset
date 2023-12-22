@@ -75,7 +75,11 @@ MonoBehaviour:
       Y: 385
       Width: 46
       Height: 18
-    modoDeToken: 0
+    tipoTam: 0
+    ordenDeDisparo: 0
+    armaPoderosa: 0
+    escudos:
+    - {x: 1, y: 1}
   - contorno:
     - X: 229
       Y: 309
@@ -206,7 +210,12 @@ MonoBehaviour:
       Y: 309
       Width: 92
       Height: 43
-    modoDeToken: 0
+    tipoTam: 1
+    ordenDeDisparo: 0
+    armaPoderosa: 1
+    escudos:
+    - {x: 1, y: 1}
+    - {x: 0.5, y: 1.5}
   - contorno:
     - X: 217
       Y: 217
@@ -389,4 +398,10 @@ MonoBehaviour:
       Y: 217
       Width: 151
       Height: 78
-    modoDeToken: 0
+    tipoTam: 2
+    ordenDeDisparo: 0
+    armaPoderosa: 1
+    escudos:
+    - {x: 1, y: 1}
+    - {x: 0.5, y: 1.1}
+    - {x: 0.3, y: 1.2}

@@ -16,9 +16,13 @@ public class TokenTemplates : ScriptableObject
     {
         public Point[] contorno;
         public CvRect cvRect;
-        public ProcesarToken.Modo modoDeToken;
         // public PostPRoc
         public TipoTam tipoTam = TipoTam.Mayor;
+
+        public int ordenDeDisparo = 0;
+        public bool armaPoderosa;
+        
+        public List<Vector2> escudos = new();//x=porcentaje, y=tam
     }
 
     public enum TipoTam { Menor, Referencia, Mayor }

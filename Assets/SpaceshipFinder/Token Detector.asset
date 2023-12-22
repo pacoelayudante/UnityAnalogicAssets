@@ -15,6 +15,6 @@ MonoBehaviour:
   _tipoHue: 0
   _tokenTemplates: {fileID: 11400000, guid: 7c8591bd368eb0e498da15b516910731, type: 2}
   _blobsPurpura: {fileID: 11400000, guid: bb30835d7a9034440856342702fc9c07, type: 2}
-  _blobsAmarillos: {fileID: 11400000, guid: 9e6262d2f44af7d4087212d131bb49a0, type: 2}
+  _blobsAmarillos: {fileID: 11400000, guid: 38f2e39e4f25a2b49ac24ecced03a156, type: 2}
   _blobsFuxia: {fileID: 11400000, guid: 571f49eca90c84044ad65ef52067b175, type: 2}
   _shapeMatchModes: 3
