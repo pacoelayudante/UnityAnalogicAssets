@@ -15,6 +15,9 @@ public class PlasmarEscenario : ScriptableObject
 
     public TokenTemplates TokenTemplates => _tokenDetector._tokenTemplates;
 
+    public float defaultDistLaserMiss = 800f;
+    public Vector3 rootSceneScale = new Vector3(1f,-1f,1f);
+
     public void PrepararEscenario(Texture2D input)
     {
         _tokenDetector.Detectar(input, out TokenDetector.Resultados resultados);
@@ -27,10 +30,11 @@ public class PlasmarEscenario : ScriptableObject
         //foreach (var token in resultados.todosLosTokens)
         for (int i = 0; i < resultados.todosLosTokens.Count; i++)
         {
-            var nuevoToken = new GameObject($"Token {i}");
-            nuevoToken.transform.SetParent(nuevoEscenario.transform);
+            var nuevoToken = new GameObject($"{resultados.todosLosTokens[i].TemplateMasPosible.Nombre} {i}");
+            nuevoToken.transform.SetParent(nuevoEscenario.transform, worldPositionStays: false);
             nuevoToken.hideFlags = HideFlags.DontSave;
             var naveEnEscena = nuevoToken.AddComponent<NaveEnEscena>();
+            naveEnEscena.distLaserMiss = defaultDistLaserMiss;
             naveEnEscena.Inicializar(resultados.todosLosTokens[i]);
 
             navesEnEscena[resultados.todosLosTokens[i]] = (naveEnEscena);
@@ -47,6 +51,10 @@ public class PlasmarEscenario : ScriptableObject
         {
             nave.CalcularRayos();
         }
+        
+        // el CreateMesh del collider tiene que suceder antes que el flip, asique...
+        // mismo los rayos? como que andan mas o menos?
+        nuevoEscenario.transform.localScale = rootSceneScale;
     }
 
 #if UNITY_EDITOR

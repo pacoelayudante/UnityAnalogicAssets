@@ -13,3 +13,5 @@ MonoBehaviour:
   m_Name: Plasmar Escenario
   m_EditorClassIdentifier: 
   _tokenDetector: {fileID: 11400000, guid: e129087980837bd43b65f1e063d79605, type: 2}
+  defaultDistLaserMiss: 800
+  rootSceneScale: {x: 1, y: -1, z: 1}

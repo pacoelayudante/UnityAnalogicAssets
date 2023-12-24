@@ -14,6 +14,7 @@ public class TokenTemplates : ScriptableObject
     [System.Serializable]
     public class TokenTemplate
     {
+        public string Nombre = "Token";
         public Point[] contorno;
         public CvRect cvRect;
         // public PostPRoc

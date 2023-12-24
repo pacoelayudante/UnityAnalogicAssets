@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: TokenTemplates blender
   m_EditorClassIdentifier: 
   tokenTemplates:
-  - contorno:
+  - Nombre: Interceptor
+    contorno:
     - X: 263
       Y: 385
     - X: 258
@@ -80,7 +81,8 @@ MonoBehaviour:
     armaPoderosa: 0
     escudos:
     - {x: 1, y: 1}
-  - contorno:
+  - Nombre: Destructor
+    contorno:
     - X: 229
       Y: 309
     - X: 225
@@ -216,7 +218,8 @@ MonoBehaviour:
     escudos:
     - {x: 1, y: 1}
     - {x: 0.5, y: 1.5}
-  - contorno:
+  - Nombre: Crucero
+    contorno:
     - X: 217
       Y: 217
     - X: 209

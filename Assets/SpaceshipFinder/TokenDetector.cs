@@ -178,11 +178,18 @@ public class TokenDetector : ScriptableObject
                     // localMaximas[i] = Cv2.BoundingRect(contornos[i]).Center;
 
                     var moments = Cv2.Moments(contornos[i]);
-                    var centroide = new Point2d((moments.M10 / moments.M00)+cvBBox.TopLeft.X, (moments.M01 / moments.M00)+cvBBox.TopLeft.Y);
-                    // localMaximas[i] = centroide;
-                    localMaximas[i] = centroide;//new Point(centroide.X, centroide.Y);
+                    if (moments.M00 == 0d)
+                    {
+                        localMaximas[i] = Cv2.BoundingRect(contornos[i]).Center + cvBBox.TopLeft;
+                    }
+                    else
+                    {
+                        var centroide = new Point2d((moments.M10 / moments.M00) + cvBBox.TopLeft.X, (moments.M01 / moments.M00) + cvBBox.TopLeft.Y);
+                        // localMaximas[i] = centroide;
+                        localMaximas[i] = centroide;//new Point(centroide.X, centroide.Y);
+                    }
 
-                    var distConCentral = cvBBox.Center.DistanceTo(centroide);
+                    var distConCentral = cvBBox.Center.DistanceTo(localMaximas[i]);
                     if (distConCentral < distMinCentral)
                     {
                         distMinCentral = distConCentral;
@@ -254,7 +261,7 @@ public class TokenDetector : ScriptableObject
             {
                 if (contornosA[i].Length <= 2) // una lina sin area ni nada muy complicado.. o un punto osea nada que ver
                     continue;
-                
+
                 var nuevoToken = new TokenEncontrado(contornosA[i], hueInputMat.Height, _tokenTemplates.tokenTemplates, _shapeMatchModes)
                 { equipo = EQUIPO_AMARILLO };
                 resultados.tokensAmarillo.Add(nuevoToken);
@@ -284,7 +291,7 @@ public class TokenDetector : ScriptableObject
             }
 
             resultados.tokensDisparadores = new();
-            
+
             for (int i = 0; i < contornosF.Length; i++)
             {
                 var cvBBox = Cv2.BoundingRect(contornosF[i]);
@@ -300,7 +307,7 @@ public class TokenDetector : ScriptableObject
                 var nuevoTokenDisparo = new TokenDisparador(contornosF[i], cvBBox, resultadoBinario);
                 resultados.tokensDisparadores.Add(nuevoTokenDisparo);
             }
-            
+
             var navesConArmas = new List<TokenEncontrado>(resultados.todosLosTokens);
             navesConArmas.RemoveAll(el => el.puntosArmas.Count == 0);
             foreach (var tokenDisparo in resultados.tokensDisparadores)
@@ -468,9 +475,9 @@ public class TokenDetector : ScriptableObject
 
                 foreach (var p in disparador.localMaximas)
                 {
-                    DibujarCirculo(guirect, (float)(p.X - disparador.cvBBox.TopLeft.X)*3, (float)(p.Y - disparador.cvBBox.TopLeft.Y)*3, .5f, Color.cyan);
+                    DibujarCirculo(guirect, (float)(p.X - disparador.cvBBox.TopLeft.X) * 3, (float)(p.Y - disparador.cvBBox.TopLeft.Y) * 3, .5f, Color.cyan);
                     if (p == disparador.localMaximas[disparador.indiceCentral])
-                        DibujarCirculo(guirect, (float)(p.X - disparador.cvBBox.TopLeft.X)*3, (float)(p.Y - disparador.cvBBox.TopLeft.Y) * 3, 1.2f, Color.cyan);
+                        DibujarCirculo(guirect, (float)(p.X - disparador.cvBBox.TopLeft.X) * 3, (float)(p.Y - disparador.cvBBox.TopLeft.Y) * 3, 1.2f, Color.cyan);
                 }
 
                 if (disparador.resultado)
@@ -488,7 +495,7 @@ public class TokenDetector : ScriptableObject
                 if (disparador.tokenConArmasCercanos.Count > 0)
                 {
                     var tc = disparador.tokenConArmasCercanos[0];
-                    TokenEntcontradoGUI(tc,textureSize);
+                    TokenEntcontradoGUI(tc, textureSize);
                 }
 
                 GUILayout.Label($"Cant Maximas: {disparador.localMaximas.Length}", GUILayout.ExpandWidth(false));

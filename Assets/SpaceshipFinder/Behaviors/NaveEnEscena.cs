@@ -42,7 +42,9 @@ public class NaveEnEscena : MonoBehaviour
 
     public int equipo;
     public Vector2[] armas;
-    public int armaCentral;
+    public int indiceArmaCentral;
+
+    public float distLaserMiss = 800f;
 
     public bool DisparoPreparado = false;
 
@@ -50,6 +52,7 @@ public class NaveEnEscena : MonoBehaviour
     private Collider2D _colliders;
 
     private Vector2[] apuntadores = new Vector2[0];
+    public int indiceApuntadoreCentral;
 
     public void Inicializar(TokenDetector.TokenEncontrado encontrado)
     {
@@ -88,16 +91,16 @@ public class NaveEnEscena : MonoBehaviour
             armas[i] = new Vector2((float)p.X, (float)p.Y);
         }
 
-        armaCentral = encontrado.indiceArmaCentral;
+        indiceArmaCentral = encontrado.indiceArmaCentral;
 
-        // if (armas.Length == 0)
-        // {
-        //     DisparoPreparado = true;
-        //     var centroide = new Vector2((float)encontrado.centroideContorno.X, (float)encontrado.centroideContorno.Y);
-        //     var centroideHull = new Vector2((float)encontrado.centroideHull.X, (float)encontrado.centroideHull.Y);
+        if (armas.Length == 0)
+        {
+            DisparoPreparado = true;
+            var centroide = new Vector2((float)encontrado.centroideContorno.X, (float)encontrado.centroideContorno.Y);
+            var centroideHull = new Vector2((float)encontrado.centroideHull.X, (float)encontrado.centroideHull.Y);
 
-        //     rayos.Add(new Ray2D(centroide, centroideHull - centroide));
-        // }
+            rayos.Add(new Ray2D(centroide, centroideHull - centroide));
+        }
     }
 
     public void ApuntarDisparo(TokenDetector.TokenDisparador disparo)
@@ -110,25 +113,104 @@ public class NaveEnEscena : MonoBehaviour
             var p = disparo.localMaximas[i];
             apuntadores[i] = new Vector2((float)p.X, (float)p.Y);
         }
-        var apuntadorCentral = apuntadores[disparo.indiceCentral];
+        var apuntadorCentral = apuntadores[indiceApuntadoreCentral = disparo.indiceCentral];
 
-        rayos.Add(new Ray2D(armas[armaCentral], armas[armaCentral] - apuntadorCentral));
+        rayos.Add(new Ray2D(armas[indiceArmaCentral], armas[indiceArmaCentral] - apuntadorCentral));
 
         if (armas.Length > 1)
         {
+            var armasLadoIzq = new List<Vector2>();
+            var armasLadoDer = new List<Vector2>();
 
+            var armaCentral = armas[indiceArmaCentral];
+            foreach (var arma in armas)
+            {
+                if (arma == armaCentral)
+                    continue;
+
+                bool alIzq = (apuntadorCentral.x - armaCentral.x) * (arma.y - armaCentral.y) - (apuntadorCentral.y - armaCentral.y) * (arma.x - armaCentral.x) > 0;
+                if (alIzq)
+                    armasLadoIzq.Add(arma);
+                else
+                    armasLadoDer.Add(arma);
+            }
+
+            armasLadoIzq.Sort(CompararDistanciasConArmaCentral);
+            armasLadoDer.Sort(CompararDistanciasConArmaCentral);
+
+            var apuntadoresLadoIzq = new List<Vector2>();
+            var apuntadoresLadoDer = new List<Vector2>();
+
+            foreach (var apuntador in apuntadores)
+            {
+                if (apuntador == apuntadorCentral)
+                    continue;
+
+                bool alIzq = (apuntadorCentral.x - armaCentral.x) * (apuntador.y - armaCentral.y) - (apuntadorCentral.y - armaCentral.y) * (apuntador.x - armaCentral.x) > 0;
+                if (alIzq)
+                    apuntadoresLadoIzq.Add(apuntador);
+                else
+                    apuntadoresLadoDer.Add(apuntador);
+            }
+
+            apuntadoresLadoIzq.Sort(CompararDistanciasConApuntadorCentral);
+            apuntadoresLadoDer.Sort(CompararDistanciasConApuntadorCentral);
+
+            int loopCount = Mathf.Max(armasLadoIzq.Count, armasLadoDer.Count, apuntadoresLadoIzq.Count, apuntadoresLadoDer.Count);
+            for (int i = 0; i < loopCount; i++)
+            {
+                if (i < armasLadoIzq.Count && i < apuntadoresLadoIzq.Count)
+                    rayos.Add(new Ray2D(armasLadoIzq[i], armasLadoIzq[i] - apuntadoresLadoIzq[i]));
+                if (i < armasLadoDer.Count && i < apuntadoresLadoDer.Count)
+                    rayos.Add(new Ray2D(armasLadoDer[i], armasLadoDer[i] - apuntadoresLadoDer[i]));
+            }
         }
     }
 
+    int CompararDistanciasConArmaCentral(Vector2 a, Vector2 b)
+        => (a - armas[indiceArmaCentral]).sqrMagnitude.CompareTo((b - armas[indiceArmaCentral]).sqrMagnitude);
+    int CompararDistanciasConApuntadorCentral(Vector2 a, Vector2 b)
+        => (a - apuntadores[indiceApuntadoreCentral]).sqrMagnitude.CompareTo((b - apuntadores[indiceApuntadoreCentral]).sqrMagnitude);
+
     void OnDrawGizmosSelected()
     {
-        if (apuntadores == null)
-            return;
+        Gizmos.matrix = transform.localToWorldMatrix;
 
-        foreach (var p in apuntadores)
+        if (apuntadores != null)
         {
-            Gizmos.DrawSphere(p, 2f);
-            Gizmos.DrawLine(p, armas[armaCentral]);
+            foreach (var p in apuntadores)
+            {
+                Gizmos.DrawSphere(p, 2f);
+            }
+        }
+
+        if (armas != null)
+        {
+            foreach (var p in armas)
+            {
+                Gizmos.DrawCube(p, Vector2.one * 2f);
+            }
+        }
+
+        if (rayos != null)
+        {
+            foreach (var r in rayos)
+            {
+                Gizmos.DrawLine(r.origin, r.GetPoint(-120f));
+
+
+                Gizmos.color = Color.magenta;
+                var hitCant = Physics2D.RaycastNonAlloc(r.origin, r.direction, Hits);
+                for (int i = 0; i < hitCant; i++)
+                {
+                    var hit = Hits[i];
+                    
+                    Gizmos.DrawLine(r.origin, r.GetPoint(hit.distance));
+                    Gizmos.DrawSphere(hit.point, 2f);
+
+                }
+                Gizmos.color = Color.white;
+            }
         }
     }
 
@@ -143,16 +225,17 @@ public class NaveEnEscena : MonoBehaviour
         {
             var hitCant = Physics2D.RaycastNonAlloc(rayo.origin, rayo.direction, Hits);
 
-            var hitDist = hitCant > 0 ? Hits[0].distance : 400f;
+            var hitDist = hitCant > 0 ? Hits[0].distance : distLaserMiss;
 
             var dibujoRayo = new GameObject("Rayo Mini");
             dibujoRayo.hideFlags = HideFlags.DontSave;
-            dibujoRayo.transform.SetParent(transform);
+            dibujoRayo.transform.SetParent(transform, worldPositionStays: false);
             var line = dibujoRayo.AddComponent<LineRenderer>();
+            line.useWorldSpace = false;
             line.SetPosition(0, rayo.origin);
             line.SetPosition(1, rayo.GetPoint(hitDist));
             line.sharedMaterial = MatDefault;
-            line.startColor = line.endColor = Color.red;
+            line.startColor = line.endColor = hitCant == 0 ? Color.black : Color.red;
         }
 
         _colliders.enabled = true;
